@@ -1,107 +1,77 @@
 const { createClient } = require('@supabase/supabase-js');
 
-// Config
 const SUPABASE_URL = 'https://iqimfntocrsjgsfvrcbr.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_xj3-9XHFo4FvnI04Jx4vXQ_b0STQD6B';
-
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
-/**
- * SMART PRUNE: Deletes only NULL or 0 amount rows (Junk)
- */
 async function pruneJunk() {
-    console.log("🧹 Pruning misidentified junk records...");
     const { error } = await supabase.from('transactions').delete().or('amount.is.null,amount.eq.0');
     if (error) console.error("⚠️ Prune Warning:", error.message);
 }
 
-/**
- * NUCLEAR RESET: Wipes everything
- */
 async function clearAllData() {
-    console.log("🚀 Initializing Nuclear Clean-Slate...");
     try {
         await supabase.from('scores').delete().neq('id', '00000000-0000-0000-0000-000000000000');
         await supabase.from('transactions').delete().neq('id', '00000000-0000-0000-0000-000000000000');
-        console.log("✅ Cleanup Complete. System Reset.");
+        console.log("✅ Cleanup Complete.");
     } catch (e) {
         console.error("❌ Cleanup Error:", e.message);
     }
 }
 
 /**
- * Saves a batch of parsed transactions to Supabase.
- * Uses UPSERT with 'reference_number' conflict resolution for idempotency.
+ * Idempotent save — upsert means calling this 100 times with the same data
+ * has exactly the same result as calling it once.
  */
 async function saveTransactions(transactions) {
-    if (transactions.length === 0) return;
+    if (!transactions || transactions.length === 0) return;
 
-    // --- NUCLEAR STABILITY: TOTAL DEDUPLICATION ---
-    // We fetch ALL reference numbers (no limit) to ensure even the oldest transaction is never double-counted.
-    const { data: allRefs, error: refError } = await supabase
-        .from('transactions')
-        .select('reference_number');
+    const rows = transactions.map(item => ({
+        amount:           item.amount,
+        type:             item.type,
+        merchant:         item.merchant,
+        reference_number: item.reference_number,
+        date:             item.date,
+        raw_message:      item.raw_message
+    }));
 
-    if (refError) console.error("Ref Fetch Error:", refError.message);
-
-    const existingSet = new Set(allRefs?.map(r => r.reference_number) || []);
-    
-    const finalRows = transactions
-        .filter(tx => !existingSet.has(tx.reference_number))
-        .map(item => ({
-            amount: item.amount,
-            type: item.type,
-            merchant: item.merchant,
-            reference_number: item.reference_number,
-            date: item.date,
-            raw_message: item.raw_message
-        }));
-
-    if (finalRows.length === 0) return;
-
-    // Use UPSERT on reference_number to handle bank retries vs duplicates
     const { error } = await supabase
         .from('transactions')
-        .upsert(finalRows, { onConflict: 'reference_number', ignoreDuplicates: true });
+        .upsert(rows, { onConflict: 'reference_number', ignoreDuplicates: true });
 
-    if (error) console.error('Error saving transactions (UPSERT ref):', error.message);
+    if (error) console.error('Error saving transactions:', error.message);
 }
 
-/**
- * Saves a calculated score and breakdown to Supabase.
- */
 async function saveScore(scoreData) {
     const { error } = await supabase
         .from('scores')
         .insert([{
-            score: scoreData.score,
-            risk: scoreData.risk,
-            total_credit: scoreData.features.totalCredit,
-            total_debit: scoreData.features.totalDebit,
+            score:             scoreData.score,
+            risk:              scoreData.risk,
+            total_credit:      scoreData.features.totalCredit,
+            total_debit:       scoreData.features.totalDebit,
             transaction_count: scoreData.features.transactionCount,
-            breakdown: scoreData.breakdown 
+            breakdown:         scoreData.breakdown
         }]);
-
     if (error) console.error('Error saving score:', error.message);
 }
 
 /**
- * Fetches transaction history and latest score entries.
- * NUCLEAR STABILITY: Unlimited history check for scoring determinism.
+ * Returns the canonical DB state — no limits that could distort the score.
+ * 10,000 is a safe ceiling for any business SMS history.
  */
 async function getHistory() {
-    // 10,000 limit is a safe "unlimited" for business SMS history
     const { data: transactions, error: tError } = await supabase
         .from('transactions')
         .select('*')
         .order('date', { ascending: false })
-        .limit(10000); 
+        .limit(10000);
 
     const { data: scores, error: sError } = await supabase
         .from('scores')
         .select('*')
         .order('created_at', { ascending: false })
-        .limit(2); 
+        .limit(2);
 
     if (tError || sError) {
         console.error('Error fetching history:', tError?.message || sError?.message);
@@ -114,10 +84,4 @@ async function getHistory() {
     };
 }
 
-module.exports = {
-    saveTransactions,
-    saveScore,
-    getHistory,
-    clearAllData,
-    pruneJunk
-};
+module.exports = { saveTransactions, saveScore, getHistory, clearAllData, pruneJunk };

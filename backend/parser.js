@@ -74,11 +74,14 @@ function parseStrictTransaction(sms) {
     const mMatch = body.match(merchantRegex);
     const merchant = mMatch ? mMatch[1].trim() : "Bank Transaction";
 
+    // GUARD: Never allow 'null' string or empty as reference_number
+    if (!refNo || refNo === 'null' || refNo.trim() === '') return null;
+
     return {
         amount,
         type,
         merchant: merchant.substring(0, 50),
-        reference_number: refNo, 
+        reference_number: refNo,
         date: date || new Date().toISOString()
     };
 }
