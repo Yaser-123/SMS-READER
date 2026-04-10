@@ -5,29 +5,27 @@ Run the following SQL in the Supabase SQL Editor to enforce the unique constrain
 that makes the upsert idempotent (this is why your score keeps jumping):
 
 ```sql
--- Step 1: Clean any remaining null/duplicate reference_numbers
+-- Step 1: Clean null/zero rows
 DELETE FROM transactions
 WHERE reference_number IS NULL
    OR reference_number = 'null'
    OR amount IS NULL
    OR amount = 0;
 
--- Step 2: Remove duplicate reference_numbers (keep the first/oldest one)
-DELETE FROM transactions
-WHERE id NOT IN (
-    SELECT MIN(id)
-    FROM transactions
-    GROUP BY reference_number
-);
+-- Step 2: Remove duplicates — keep the EARLIEST row per reference_number
+-- (Uses created_at since id is a UUID and MIN(uuid) is not supported)
+DELETE FROM transactions t1
+USING transactions t2
+WHERE t1.reference_number = t2.reference_number
+  AND t1.created_at > t2.created_at;
 
--- Step 3: Add the unique constraint so upsert works correctly
+-- Step 3: Add unique constraint so upsert works forever
 ALTER TABLE transactions
 ADD CONSTRAINT unique_reference_number UNIQUE (reference_number);
 
--- Step 4: Verify the constraint was added
-SELECT constraint_name, constraint_type
-FROM information_schema.table_constraints
-WHERE table_name = 'transactions';
+-- Step 4: Verify
+SELECT constraint_name FROM information_schema.table_constraints
+WHERE table_name = 'transactions' AND constraint_type = 'UNIQUE';
 ```
 
 After running this SQL:
