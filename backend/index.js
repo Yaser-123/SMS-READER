@@ -54,7 +54,6 @@ app.post('/api/sms', async (req, res) => {
         const allTransactions = historyData.transactions;
         const lastTwoScores = historyData.latestScores;
 
-        // 4. Feature Engineering
         const features = calculateFeatures(allTransactions);
 
         // 5. Intelligence Engine (Explainable Scoring)
@@ -69,11 +68,10 @@ app.post('/api/sms', async (req, res) => {
         // 6. Trend Analysis (Score Change)
         let scoreChange = 0;
         if (lastTwoScores.length > 0) {
-            // Compare current score with the absolute latest entry in DB
             scoreChange = score - lastTwoScores[0].score;
         }
 
-        // 7. Save new score entry
+        // 7. Save new score entry (Breakdown is included but not critical for UI retrieval)
         await saveScore({ score, risk, features, breakdown });
 
         res.json({
@@ -81,11 +79,11 @@ app.post('/api/sms', async (req, res) => {
             score: score,
             risk: risk,
             scoreChange: scoreChange,
-            breakdown: breakdown,
+            breakdown: breakdown, // Calculated Fresh
             summary: summary,
             features: features,
             insights: insights,
-            eligibleLoans: getLoans(score) // Returns all loans with eligibility flag
+            eligibleLoans: getLoans(score)
         });
 
     } catch (error) {
@@ -98,10 +96,23 @@ app.post('/api/sms', async (req, res) => {
 app.get('/api/history', async (req, res) => {
     try {
         const historyData = await getHistory();
+        const transactions = historyData.transactions;
+        const latestScore = historyData.latestScores.length > 0 ? historyData.latestScores[0] : null;
+
+        let dynamicBreakdown = null;
+        if (latestScore) {
+            // Re-calculate features and score to get the correct breakdown for the UI
+            const features = calculateFeatures(transactions);
+            const scoreResult = calculateScore(features);
+            dynamicBreakdown = scoreResult.breakdown;
+        }
+
         res.json({
-            transactions: historyData.transactions,
-            latestScore: historyData.latestScores.length > 0 ? historyData.latestScores[0] : null,
-            // Calculate change if at least 2 entries exist
+            transactions: transactions,
+            latestScore: latestScore ? {
+                ...latestScore,
+                breakdown: dynamicBreakdown // Overlay fresh breakdown
+            } : null,
             scoreChange: historyData.latestScores.length >= 2 ? 
                 (historyData.latestScores[0].score - historyData.latestScores[1].score) : 0
         });

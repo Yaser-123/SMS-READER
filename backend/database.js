@@ -12,21 +12,38 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
  * SQL: ALTER TABLE transactions ADD CONSTRAINT unique_ref UNIQUE (reference_number);
  */
 async function saveTransactions(transactions) {
-    const rows = transactions.map(item => ({
-        amount: item.amount,
-        type: item.type,
-        merchant: item.merchant,
-        reference_number: item.reference_number,
-        date: item.date,
-        raw_message: item.raw_message
-    }));
+    if (transactions.length === 0) return;
 
-    if (rows.length === 0) return;
+    // --- CODE-LEVEL DE-DUPLICATION (Failsafe) ---
+    // Fetch last 100 reference numbers to prevent same-sync or recent duplicates
+    const { data: existingRefs } = await supabase
+        .from('transactions')
+        .select('reference_number')
+        .order('date', { ascending: false })
+        .limit(100);
+
+    const existingSet = new Set(existingRefs?.map(r => r.reference_number) || []);
+    
+    const finalRows = transactions
+        .filter(tx => !existingSet.has(tx.reference_number))
+        .map(item => ({
+            amount: item.amount,
+            type: item.type,
+            merchant: item.merchant,
+            reference_number: item.reference_number,
+            date: item.date,
+            raw_message: item.raw_message
+        }));
+
+    if (finalRows.length === 0) return;
 
     // Use UPSERT on reference_number to handle bank retries vs duplicates
     const { error } = await supabase
         .from('transactions')
-        .upsert(rows, { onConflict: 'reference_number', ignoreDuplicates: true });
+        .upsert(finalRows, { onConflict: 'reference_number', ignoreDuplicates: true });
+
+    if (error) console.error('Error saving transactions (UPSERT ref):', error.message);
+}
 
     if (error) console.error('Error saving transactions (UPSERT ref):', error.message);
 }

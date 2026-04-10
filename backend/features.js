@@ -20,20 +20,23 @@ function calculateFeatures(transactions) {
     let totalDebit = 0;
     const merchants = {};
 
-    transactions.forEach(tx => {
-        if (tx.type === 'credit') {
-            totalCredit += tx.amount;
-        } else if (tx.type === 'debit') {
-            totalDebit += tx.amount;
-        }
+    transactions
+        .filter(tx => tx.amount && tx.amount > 0)
+        .forEach(tx => {
+            if (tx.type === 'credit') {
+                totalCredit += tx.amount;
+            } else if (tx.type === 'debit') {
+                totalDebit += tx.amount;
+            }
 
-        // Count merchant frequency
-        if (tx.merchant && tx.merchant !== 'Unknown') {
-            merchants[tx.merchant] = (merchants[tx.merchant] || 0) + 1;
-        }
-    });
+            // Count merchant frequency
+            if (tx.merchant && tx.merchant !== 'Unknown') {
+                merchants[tx.merchant] = (merchants[tx.merchant] || 0) + 1;
+            }
+        });
 
-    const transactionCount = transactions.length;
+    const filteredTransactions = transactions.filter(tx => tx.amount && tx.amount > 0);
+    const transactionCount = filteredTransactions.length;
     const avgTransactionValue = transactionCount > 0 ? (totalCredit + totalDebit) / transactionCount : 0;
     
     // Calculate spending ratio (capped at 2.0)

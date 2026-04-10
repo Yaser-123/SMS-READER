@@ -1,23 +1,23 @@
 /**
- * STRICT SMS PARSER ENGINE (Production Level)
- * Filters and validates UPI bank transactions only.
+ * STRICT SMS PARSER ENGINE (v2.0)
+ * Hardened for high-trust banking data.
  */
 
-const bankKeywords = ["BOI", "HDFC", "SBI", "ICICI", "AXIS", "KOTAK", "PNB", "CANARA", "PAYTM"];
+const bankKeywords = ["BOI", "HDFC", "SBI", "ICICI", "AXIS", "KOTAK", "PNB", "CANARA", "PAYTM", "FEDERAL"];
 
 /**
  * Stage 1: Primary Sender Filter
  */
 function isValidBankSender(sender) {
     if (!sender) return false;
-    
     const senderUpper = sender.toUpperCase();
     
     // Check for bank keywords
     const hasBankKeyword = bankKeywords.some(bank => senderUpper.includes(bank));
     
-    // Pattern check: 2 letters prefix + hyphen + Alphanumeric (e.g. JD-BOIIND-S)
-    const matchesPattern = /^[A-Z]{2}-[A-Z0-9]+/.test(senderUpper);
+    // Strict Pattern: Exactly 2 letters + hyphen + Bank Alphanumeric
+    // e.g. JD-BOIIND, VM-HDFCBK
+    const matchesPattern = /^[A-Z]{2}-[A-Z0-9]{4,}/.test(senderUpper);
     
     return hasBankKeyword && matchesPattern;
 }
@@ -27,20 +27,16 @@ function isValidBankSender(sender) {
  */
 function isValidUPIMessage(body) {
     if (!body) return false;
-    
     const bodyLower = body.toLowerCase();
-    const hasUPITerm = body.includes("UPI");
-    const hasTransactionAction = 
-        bodyLower.includes("debited") || 
-        bodyLower.includes("credited") || 
-        bodyLower.includes("paid") || 
-        bodyLower.includes("received");
+    
+    const hasUPITerm = body.toUpperCase().includes("UPI");
+    const hasAction = /debited|credited|paid|received/.test(bodyLower);
         
-    return hasUPITerm && hasTransactionAction;
+    return hasUPITerm && hasAction;
 }
 
 /**
- * Stage 3: Strict Amount Extraction
+ * Stage 3: Strict Amount Extraction (Must be > 0)
  */
 function extractAmount(body) {
     const amountRegex = /(Rs\.?|₹|INR)\s?([\d,]+(?:\.\d+)?)/i;
@@ -51,21 +47,21 @@ function extractAmount(body) {
     const rawValue = match[2].replace(/,/g, "");
     const amount = parseFloat(rawValue);
     
-    if (isNaN(amount) || amount <= 0) return null;
+    // STRICT: Reject if 0, NaN, or negative
+    if (!amount || isNaN(amount) || amount <= 0) return null;
     
     return amount;
 }
 
 /**
- * Stage 4: Mandatory Reference Number
+ * Stage 4: Advanced Reference Number Extraction
  */
 function extractRefNo(body) {
-    // Regex provided by user: /Ref(?:erence)?\s?No.?\s?(\d+)/i
-    const refRegex = /Ref(?:erence)?\s?No.?\s?(\d+)/i;
+    // Supports: Ref No.123, UPI Ref 123, RRN 123, vide No.123
+    const refRegex = /(?:Ref(?:erence)?\s?No\.?|UPI Ref|RRN|No\.?|#)\s*[:.\s-]*\s*([a-z0-9]{6,})/i;
     const match = body.match(refRegex);
     
-    if (!match) return null; // MANDATORY - discard if missing
-    
+    if (!match) return null; // Discard if no ref number
     return match[1].trim();
 }
 
@@ -75,26 +71,20 @@ function extractRefNo(body) {
 function parseStrictTransaction(sms) {
     const { body, sender, date } = sms;
 
-    // 1. Check Sender
     if (!isValidBankSender(sender)) return null;
-
-    // 2. Check UPI Keywords
     if (!isValidUPIMessage(body)) return null;
 
-    // 3. Extract Amount
     const amount = extractAmount(body);
     if (amount === null) return null;
 
-    // 4. Extract Reference Number (MANDATORY)
     const refNo = extractRefNo(body);
     if (refNo === null) return null;
 
-    // 5. Success - Build final transaction object
     const bodyLower = body.toLowerCase();
     const type = (bodyLower.includes("debited") || bodyLower.includes("paid")) ? "debit" : "credit";
 
-    // Support Merchant Extraction (Better for UI)
-    const merchantRegex = /(?:to|from|at)\s+(.*?)(?:\s+via|\son|\sRef|\sis|$)/i;
+    // Refined Merchant Extraction
+    const merchantRegex = /(?:to|from|at)\s+(.*?)(?:\s+via|\son|\sRef|\sis|$|\.)/i;
     const merchantMatch = body.match(merchantRegex);
     const merchant = merchantMatch ? merchantMatch[1].trim() : "Unknown";
 
