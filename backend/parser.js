@@ -1,6 +1,8 @@
+const crypto = require('crypto');
+
 /**
  * SMS Parser utility
- * Extracts Amount, Merchant, Type, and Date from UPI messages.
+ * Extracts Amount, Merchant, Type, Date, and Reference Number from UPI messages.
  */
 
 function parseUPIMessage(body) {
@@ -11,20 +13,18 @@ function parseUPIMessage(body) {
         type: null,
         merchant: "Unknown",
         date: "Unknown",
+        referenceNumber: null,
         confidence: "low"
     };
 
     // 1. Normalize and Extract Amount
-    // Improved Regex: Supports Rs., ₹, INR with proper dot escaping
     const amountRegex = /(Rs\.?|₹|INR)\s?([\d,]+(?:\.\d+)?)/i;
     const amountMatch = body.match(amountRegex);
     
     if (amountMatch) {
-        // Remove commas and parse to float
         const rawAmount = amountMatch[2].replace(/,/g, '');
         const amount = parseFloat(rawAmount);
 
-        // STRICT VALIDATION: Return null if invalid, zero, or negative
         if (!amount || isNaN(amount) || amount <= 0) {
             return null;
         }
@@ -43,14 +43,26 @@ function parseUPIMessage(body) {
         return null; 
     }
 
-    // 3. Extract Merchant Name
+    // 3. Extract Reference Number (Improved for broader formats)
+    // Supports: Ref:123, Ref.123, No.123, vide No.123, UPI Ref:123, RRN:123
+    const refRegex = /(?:Ref\.?|UPI Ref|RRN|Trans ID|No\.?|#|vide\s+No\.?|ID|RefNo)\s*[:.\s-]*\s*([a-z0-9]+)/i;
+    const refMatch = body.match(refRegex);
+    
+    if (refMatch) {
+        data.referenceNumber = refMatch[1].trim();
+    } else {
+        // Fallback: Deterministic Hash (Body + Month/Year if found)
+        data.referenceNumber = crypto.createHash('md5').update(body).digest('hex').substring(0, 12);
+    }
+
+    // 4. Extract Merchant Name
     const merchantRegex = /(?:to|from|at)\s+(.*?)(?:\s+via|\son|\sRef|$|\.|\sis)/i;
     const merchantMatch = body.match(merchantRegex);
     if (merchantMatch) {
         data.merchant = merchantMatch[1].trim();
     }
 
-    // 4. Extract Date
+    // 5. Extract Date
     const dateRegex = /(?:on\s)(\d{2}[a-zA-Z]{3}\d{2})/i;
     const dateMatch = body.match(dateRegex);
     if (dateMatch) {
@@ -61,7 +73,7 @@ function parseUPIMessage(body) {
         if (simpleMatch) data.date = simpleMatch[1];
     }
 
-    // 5. Confidence Calculation
+    // 6. Confidence Calculation
     if (data.amount !== null && data.type !== null && data.merchant !== "Unknown") {
         data.confidence = "high";
     }

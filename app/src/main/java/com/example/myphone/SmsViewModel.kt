@@ -47,7 +47,9 @@ class SmsViewModel(application: Application) : AndroidViewModel(application) {
                             status = "success",
                             score = response.latestScore.score,
                             risk = response.latestScore.risk,
-                            summary = "Active business profile loaded.",
+                            scoreChange = response.scoreChange,
+                            breakdown = response.latestScore.breakdown ?: ScoreBreakdown(),
+                            summary = "Historical business profile and trend analysis loaded.",
                             eligibleLoans = emptyList()
                         )
                         _uiState.value = UiState.Success(mockProfile, response.transactions)
@@ -78,16 +80,11 @@ class SmsViewModel(application: Application) : AndroidViewModel(application) {
 
                 val syncResult = repository.syncSms(messages)
                 syncResult.onSuccess { profile ->
-                    // Guard against null eligibleLoans from backend
-                    val safeProfile = profile.copy(
-                        eligibleLoans = profile.eligibleLoans ?: emptyList()
-                    )
-                    
                     val historyResult = repository.getHistory()
                     historyResult.onSuccess { history ->
-                        _uiState.value = UiState.Success(safeProfile, history.transactions)
+                        _uiState.value = UiState.Success(profile, history.transactions)
                     }.onFailure {
-                        _uiState.value = UiState.Success(safeProfile, emptyList())
+                        _uiState.value = UiState.Success(profile, emptyList())
                     }
                 }.onFailure {
                     _uiState.value = UiState.Error(it.message ?: "Failed to generate business profile.")
@@ -100,7 +97,7 @@ class SmsViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun getCurrentTimestamp(): String {
-        return "Last Updated: " + SimpleDateFormat("hh:mm a", Locale.getDefault()).format(Date())
+        return "Last Sync: " + SimpleDateFormat("hh:mm a", Locale.getDefault()).format(Date())
     }
 
     /**

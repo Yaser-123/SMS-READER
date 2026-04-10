@@ -1,68 +1,74 @@
 /**
  * Scoring Module
- * Implements ML-style scoring, risk classification, and explainability.
+ * Implements additive, explainable scoring.
+ * Formula: Score = 300 (Base) + Income + Activity + Stability
  */
 
 function calculateScore(features) {
-    if (features.transactionCount === 0) return 300;
-
-    let score = 300;
-
-    // 1. Income Strength (300 points)
-    const incomeScore = Math.min(features.totalCredit / 10000, 1) * 300;
+    const baseScore = 300;
     
-    // 2. Transaction Frequency (200 points)
-    const frequencyScore = Math.min(features.transactionCount / 50, 1) * 200;
+    // 1. Income Strength (Max 250 points)
+    // Goal: 20k+ income for full points
+    const incomePoints = Math.round(Math.min(features.totalCredit / 20000, 1) * 250);
+    
+    // 2. Business Activity (Max 150 points)
+    // Goal: 30+ transactions for full points
+    const activityPoints = Math.round(Math.min(features.transactionCount / 30, 1) * 150);
 
-    // 3. Stability Score (200 points)
-    let stabilityScore = 0;
-    if (features.spendingRatio < 0.5) stabilityScore = 200;
-    else if (features.spendingRatio < 0.8) stabilityScore = 150;
-    else stabilityScore = 80;
+    // 3. Stability & Cash Flow (Max 200 points)
+    let stabilityPoints = 0;
+    const ratio = features.spendingRatio;
+    if (ratio < 0.4) stabilityPoints = 200;
+    else if (ratio < 0.6) stabilityPoints = 150;
+    else if (ratio < 0.8) stabilityPoints = 100;
+    else stabilityPoints = 50;
 
-    // 4. Net Balance Score (200 points)
-    const balanceScore = features.netBalance > 0 ? 200 : 50;
+    const total = baseScore + incomePoints + activityPoints + stabilityPoints;
 
-    score += incomeScore + frequencyScore + stabilityScore + balanceScore;
-
-    return Math.min(Math.round(score), 900);
+    return {
+        total: Math.min(total, 900),
+        breakdown: {
+            base: baseScore,
+            income: incomePoints,
+            activity: activityPoints,
+            stability: stabilityPoints
+        }
+    };
 }
 
 function classifyRisk(score) {
-    if (score > 700) return "LOW";
-    if (score > 500) return "MEDIUM";
+    if (score >= 750) return "LOW";
+    if (score >= 550) return "MEDIUM";
     return "HIGH";
 }
 
 function generateInsights(features) {
     const insights = {
-        income_strength: "Low incoming transaction volume identified",
-        spending_behavior: "High spending compared to income",
-        activity_level: "Limited transaction activity"
+        income_strength: "Insufficient data",
+        spending_behavior: "Insufficient data",
+        activity_level: "Insufficient data"
     };
 
-    // Income strength
-    if (features.totalCredit > 20000) insights.income_strength = "High and consistent incoming transactions";
-    else if (features.totalCredit > 5000) insights.income_strength = "Moderate income flow detected";
+    if (features.totalCredit > 20000) insights.income_strength = "Strong consistent cash inflow.";
+    else if (features.totalCredit > 5000) insights.income_strength = "Steady income flow detected.";
+    else insights.income_strength = "Low business inflow identified.";
 
-    // Spending behavior
-    if (features.spendingRatio < 0.4) insights.spending_behavior = "Controlled and healthy spending behavior";
-    else if (features.spendingRatio < 0.7) insights.spending_behavior = "Moderate spending within safe limits";
-    else insights.spending_behavior = "Risky spending pattern; expenses close to income";
+    if (features.spendingRatio < 0.5) insights.spending_behavior = "Excellent overhead management.";
+    else if (features.spendingRatio < 0.8) insights.spending_behavior = "Sustainable spending patterns.";
+    else insights.spending_behavior = "High outflow relative to income.";
 
-    // Activity level
-    if (features.transactionCount > 30) insights.activity_level = "Very active financial profile";
-    else if (features.transactionCount > 10) insights.activity_level = "Actively used account";
+    if (features.transactionCount > 25) insights.activity_level = "High-velocity business activity.";
+    else if (features.transactionCount > 10) insights.activity_level = "Regular business transactions.";
+    else insights.activity_level = "Limited business interaction.";
 
     return insights;
 }
 
 function generateSummary(features, score) {
-    if (features.transactionCount === 0) return "Insufficient transaction data to generate a profile.";
-    
-    if (score > 700) return "Excellent financial health with a strong income-to-expense ratio.";
-    if (score > 500) return "Stable financial profile with moderate spending activity.";
-    return "Caution: Spending exceeds recommended limits relative to income.";
+    if (features.transactionCount === 0) return "Gather more business activity to generate a profile.";
+    if (score >= 750) return "Premium merchant profile with high loan eligibility.";
+    if (score >= 550) return "Solid business standing with moderate credit capacity.";
+    return "Action required: Increase inflow to improve creditworthiness.";
 }
 
 module.exports = { 

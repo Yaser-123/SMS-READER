@@ -30,10 +30,17 @@ const loanProducts = [
 ];
 
 /**
- * Filter available loans based on credit score
+ * Returns all products with eligibility state
  */
-function getEligibleLoans(score) {
-    return loanProducts.filter(loan => score >= loan.minScore);
+function getLoans(score) {
+    return loanProducts.map(loan => {
+        const isEligible = score >= loan.minScore;
+        return {
+            ...loan,
+            eligible: isEligible,
+            pointsToUnlock: isEligible ? 0 : (loan.minScore - score)
+        };
+    });
 }
 
-module.exports = { getEligibleLoans };
+module.exports = { getLoans };
