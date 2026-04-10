@@ -43,15 +43,16 @@ async function saveTransactions(transactions) {
 }
 
 async function saveScore(scoreData) {
+    // NOTE: 'breakdown' is NOT a column in the scores table — it is recalculated dynamically.
+    // We only persist the scalar values that exist as real columns.
     const { error } = await supabase
         .from('scores')
-        .insert([{
+        .upsert([{
             score:             scoreData.score,
             risk:              scoreData.risk,
             total_credit:      scoreData.features.totalCredit,
             total_debit:       scoreData.features.totalDebit,
-            transaction_count: scoreData.features.transactionCount,
-            breakdown:         scoreData.breakdown
+            transaction_count: scoreData.features.transactionCount
         }]);
     if (error) console.error('Error saving score:', error.message);
 }

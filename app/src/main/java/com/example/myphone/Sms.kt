@@ -29,8 +29,12 @@ data class LoanProduct(
     @SerializedName("name") val name: String,
     @SerializedName("provider") val provider: String,
     @SerializedName("minScore") val minScore: Int,
-    @SerializedName("amount") val amount: String,
+    @SerializedName("maxAmount") val maxAmount: String = "",
+    @SerializedName("interestRate") val interestRate: String = "",
+    @SerializedName("tenure") val tenure: String = "",
     @SerializedName("link") val link: String,
+    @SerializedName("tag") val tag: String = "",
+    @SerializedName("description") val description: String = "",
     @SerializedName("eligible") val eligible: Boolean = false,
     @SerializedName("pointsToUnlock") val pointsToUnlock: Int = 0
 )

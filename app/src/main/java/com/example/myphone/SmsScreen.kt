@@ -232,33 +232,98 @@ fun BreakdownBox(label: String, points: String, modifier: Modifier) {
 @Composable
 fun LoanCard(loan: LoanProduct) {
     val context = LocalContext.current
-    val alpha = if (loan.eligible) 1f else 0.6f
+    val borderColor = if (loan.eligible) GrowthGreen.copy(0.4f) else Color.White.copy(0.05f)
+
     Card(
-        modifier = Modifier.fillMaxWidth().alpha(alpha),
+        modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = CardBackground),
-        shape = RoundedCornerShape(16.dp)
+        shape = RoundedCornerShape(16.dp),
+        border = androidx.compose.foundation.BorderStroke(1.dp, borderColor)
     ) {
-        Column(Modifier.padding(24.dp)) {
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Column {
-                    Text(loan.name, fontWeight = FontWeight.Bold, fontSize = 18.sp, color = TextPrimary)
-                    Text("By ${loan.provider}", color = TextSecondary, fontSize = 12.sp)
-                }
-                if (!loan.eligible) {
-                    Surface(color = NetflixRed.copy(0.1f), shape = RoundedCornerShape(4.dp)) {
-                        Text("Locked", Modifier.padding(6.dp), color = NetflixRed, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+        Column(Modifier.padding(20.dp)) {
+
+            // Header Row
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Top) {
+                Column(Modifier.weight(1f)) {
+                    if (loan.tag.isNotEmpty()) {
+                        Surface(
+                            color = if (loan.eligible) GrowthGreen.copy(0.15f) else NetflixRed.copy(0.1f),
+                            shape = RoundedCornerShape(4.dp)
+                        ) {
+                            Text(
+                                loan.tag.uppercase(),
+                                Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
+                                color = if (loan.eligible) GrowthGreen else NetflixRed,
+                                fontSize = 9.sp,
+                                fontWeight = FontWeight.ExtraBold
+                            )
+                        }
+                        Spacer(Modifier.height(6.dp))
                     }
+                    Text(loan.name, fontWeight = FontWeight.Bold, fontSize = 17.sp, color = TextPrimary)
+                    Text(loan.provider, color = TextSecondary, fontSize = 11.sp, modifier = Modifier.padding(top = 2.dp))
+                }
+                Surface(
+                    color = if (loan.eligible) GrowthGreen.copy(0.15f) else Color.White.copy(0.05f),
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Text(
+                        if (loan.eligible) "✓ ELIGIBLE" else "LOCKED",
+                        Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                        color = if (loan.eligible) GrowthGreen else TextSecondary,
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Bold
+                    )
                 }
             }
+
+            if (loan.description.isNotEmpty()) {
+                Spacer(Modifier.height(10.dp))
+                Text(loan.description, color = TextSecondary, fontSize = 12.sp, lineHeight = 18.sp)
+            }
+
+            Spacer(Modifier.height(14.dp))
+            HorizontalDivider(color = Color.White.copy(0.05f))
+            Spacer(Modifier.height(14.dp))
+
+            // Key Stats Row
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                LoanStat("Max Amount", loan.maxAmount, Modifier.weight(1f))
+                LoanStat("Interest Rate", loan.interestRate, Modifier.weight(1f))
+                LoanStat("Tenure", loan.tenure, Modifier.weight(1f))
+            }
+
             Spacer(Modifier.height(16.dp))
+
             if (loan.eligible) {
-                Button(onClick = { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(loan.link))) }, modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.buttonColors(containerColor = NetflixRed)) {
-                    Text("Apply Now (Unlocked)")
+                Button(
+                    onClick = { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(loan.link))) },
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = ButtonDefaults.buttonColors(containerColor = GrowthGreen),
+                    shape = RoundedCornerShape(10.dp)
+                ) {
+                    Text("Apply Now →", fontWeight = FontWeight.Bold, color = Color.Black)
                 }
             } else {
-                Text("Maintain score to unlock. Needs ${loan.pointsToUnlock} more points.", color = NetflixRed, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.Lock, contentDescription = null, tint = TextSecondary, modifier = Modifier.size(14.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text(
+                        "Need ${loan.pointsToUnlock} more points to unlock (Min. Score: ${loan.minScore})",
+                        color = TextSecondary,
+                        fontSize = 11.sp
+                    )
+                }
             }
         }
+    }
+}
+
+@Composable
+fun LoanStat(label: String, value: String, modifier: Modifier = Modifier) {
+    Column(modifier.background(Color.White.copy(0.03f), RoundedCornerShape(8.dp)).padding(8.dp)) {
+        Text(label, fontSize = 9.sp, color = TextSecondary)
+        Text(value.ifEmpty { "—" }, fontSize = 11.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
     }
 }
 
