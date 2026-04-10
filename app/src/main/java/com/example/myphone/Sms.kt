@@ -3,6 +3,15 @@ package com.example.myphone
 import com.google.gson.annotations.SerializedName
 
 /**
+ * Data model for a single SMS message
+ */
+data class Sms(
+    val body: String,
+    val sender: String,
+    val date: String
+)
+
+/**
  * Data model for Business Scoring Breakdown
  */
 data class ScoreBreakdown(

@@ -156,7 +156,14 @@ fun CreditScoreCard(profile: CreditProfileResponse) {
     }
 
     Card(
-        modifier = Modifier.fillMaxWidth().shadow(16.dp, NetflixRed.copy(0.1f), RoundedCornerShape(24.dp)),
+        modifier = Modifier
+            .fillMaxWidth()
+            .shadow(
+                elevation = 16.dp, 
+                ambientColor = NetflixRed.copy(0.1f), 
+                spotColor = NetflixRed.copy(0.1f), 
+                shape = RoundedCornerShape(24.dp)
+            ),
         shape = RoundedCornerShape(24.dp),
         colors = CardDefaults.cardColors(containerColor = CardBackground)
     ) {
