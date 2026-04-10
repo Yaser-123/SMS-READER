@@ -15,7 +15,7 @@ class SmsRepository(private val context: Context) {
 
     companion object {
         // ▼▼▼ UPDATE THIS after Railway deployment ▼▼▼
-        private const val BASE_URL = "https://9092-152-59-199-148.ngrok-free.app/"
+        private const val BASE_URL = "https://sms-reader-x5yy.onrender.com/"
         // ▲▲▲ Replace with your Railway URL, e.g.: "https://your-app.railway.app/"
     }
 
