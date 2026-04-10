@@ -7,6 +7,7 @@ const { parseUPIMessage } = require('./parser');
 const { calculateFeatures } = require('./features');
 const { calculateScore, classifyRisk, generateInsights, generateSummary } = require('./scoring');
 const { saveTransactions, saveScore, getHistory } = require('./database');
+const { getEligibleLoans } = require('./loans');
 
 const app = express();
 const PORT = 5000;
@@ -50,7 +51,10 @@ app.post('/api/sms', async (req, res) => {
         const insights = generateInsights(features);
         const summary = generateSummary(features, score);
 
-        // 6. Save new score to history (Async)
+        // 6. Discovery (Eligible Loans)
+        const eligibleLoans = getEligibleLoans(score);
+
+        // 7. Save new score to history (Async)
         const finalResult = { score, risk, features, insights, summary };
         await saveScore(finalResult);
 
@@ -67,7 +71,8 @@ app.post('/api/sms', async (req, res) => {
             summary: summary,
             features: features,
             insights: insights,
-            topMerchants: features.topMerchants
+            topMerchants: features.topMerchants,
+            eligibleLoans: eligibleLoans
         });
 
     } catch (error) {

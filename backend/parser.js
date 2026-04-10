@@ -14,22 +14,37 @@ function parseUPIMessage(body) {
         confidence: "low"
     };
 
-    // 1. Normalize and Extract Amount (Handles Rs., ₹, INR)
-    const amountRegex = /(?:Rs\.?|₹|INR)\s?([0-9,]+\.[0-9]{2})/i;
+    // 1. Normalize and Extract Amount
+    // Regex: /(Rs.?|₹|INR)\s?([\d,]+(\.\d+)?)/
+    const amountRegex = /(Rs.?|₹|INR)\s?([\d,]+(?:\.\d+)?)/i;
     const amountMatch = body.match(amountRegex);
+    
     if (amountMatch) {
-        data.amount = parseFloat(amountMatch[1].replace(/,/g, ''));
+        // Remove commas and parse to float
+        const rawAmount = amountMatch[2].replace(/,/g, '');
+        data.amount = parseFloat(rawAmount);
+
+        // DISCARD if amount <= 0 or NaN
+        if (isNaN(data.amount) || data.amount <= 0) {
+            return null;
+        }
+    } else {
+        // If no amount found, it's not a financial transaction we care about
+        return null;
     }
 
     // 2. Detect Transaction Type
-    if (body.toLowerCase().includes("debited") || body.toLowerCase().includes("paid to")) {
+    const bodyLower = body.toLowerCase();
+    if (bodyLower.includes("debited") || bodyLower.includes("paid to") || bodyLower.includes("sent to")) {
         data.type = "debit";
-    } else if (body.toLowerCase().includes("credited") || body.toLowerCase().includes("received from")) {
+    } else if (bodyLower.includes("credited") || bodyLower.includes("received from") || bodyLower.includes("received in")) {
         data.type = "credit";
+    } else {
+        return null; // Discard ambiguous messages
     }
 
-    // 3. Extract Merchant Name (Robust Extraction)
-    const merchantRegex = /(?:to|from)\s+(.*?)(?:\s+via|\son|\sRef|$)/i;
+    // 3. Extract Merchant Name
+    const merchantRegex = /(?:to|from|at)\s+(.*?)(?:\s+via|\son|\sRef|$|\.|\sis)/i;
     const merchantMatch = body.match(merchantRegex);
     if (merchantMatch) {
         data.merchant = merchantMatch[1].trim();

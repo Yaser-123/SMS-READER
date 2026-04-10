@@ -33,6 +33,18 @@ data class CreditInsights(
 )
 
 /**
+ * Data model for Loan Recommendation
+ */
+data class LoanProduct(
+    @SerializedName("id") val id: String,
+    @SerializedName("name") val name: String,
+    @SerializedName("provider") val provider: String,
+    @SerializedName("minScore") val minScore: Int,
+    @SerializedName("amount") val amount: String,
+    @SerializedName("link") val link: String
+)
+
+/**
  * Main Credit Profile response from backend
  */
 data class CreditProfileResponse(
@@ -42,7 +54,8 @@ data class CreditProfileResponse(
     @SerializedName("summary") val summary: String,
     @SerializedName("features") val features: BusinessFeatures? = null,
     @SerializedName("insights") val insights: CreditInsights? = null,
-    @SerializedName("topMerchants") val topMerchants: List<String> = emptyList()
+    @SerializedName("topMerchants") val topMerchants: List<String> = emptyList(),
+    @SerializedName("eligibleLoans") val eligibleLoans: List<LoanProduct> = emptyList()
 )
 
 /**

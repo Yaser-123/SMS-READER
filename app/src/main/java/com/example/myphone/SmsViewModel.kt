@@ -7,8 +7,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
+import java.util.*
 
 sealed class UiState {
     data object Idle : UiState()
@@ -24,9 +23,16 @@ class SmsViewModel(application: Application) : AndroidViewModel(application) {
     private val _uiState = MutableStateFlow<UiState>(UiState.Idle)
     val uiState: StateFlow<UiState> = _uiState
 
+    // Tab state: 0 = Overview, 1 = Analytics, 2 = Loans
+    private val _currentTab = MutableStateFlow(0)
+    val currentTab: StateFlow<Int> = _currentTab
+
     init {
-        // Initial fetch of history if any
         refreshHistory()
+    }
+
+    fun setTab(index: Int) {
+        _currentTab.value = index
     }
 
     private fun refreshHistory() {
@@ -39,7 +45,8 @@ class SmsViewModel(application: Application) : AndroidViewModel(application) {
                         status = "success",
                         score = response.latestScore.score,
                         risk = response.latestScore.risk,
-                        summary = "Historical profile loaded. Sync for latest update."
+                        summary = "Active business profile loaded.",
+                        eligibleLoans = emptyList() // Will be updated on sync
                     )
                     _uiState.value = UiState.Success(mockProfile, response.transactions)
                 } else {
@@ -57,7 +64,7 @@ class SmsViewModel(application: Application) : AndroidViewModel(application) {
             val messages = repository.getFilteredSms()
             
             if (messages.isEmpty()) {
-                _uiState.value = UiState.Error("No business SMS found on device.")
+                _uiState.value = UiState.Error("No financial activity detected on device.")
                 return@launch
             }
 
@@ -70,12 +77,37 @@ class SmsViewModel(application: Application) : AndroidViewModel(application) {
                     _uiState.value = UiState.Success(profile, emptyList())
                 }
             }.onFailure {
-                _uiState.value = UiState.Error(it.message ?: "Failed to evaluate credit profile.")
+                _uiState.value = UiState.Error(it.message ?: "Failed to generate business profile.")
             }
         }
     }
 
     fun getCurrentTimestamp(): String {
         return SimpleDateFormat("dd MMM, hh:mm a", Locale.getDefault()).format(Date())
+    }
+
+    /**
+     * Data Preparation for Charts
+     */
+    fun getIncomeExpenseData(history: List<HistoryItem>): Pair<Float, Float> {
+        val income = history.filter { it.type == "credit" }.sumOf { it.amount }.toFloat()
+        val expense = history.filter { it.type == "debit" }.sumOf { it.amount }.toFloat()
+        return income to expense
+    }
+
+    fun getActivityData(history: List<HistoryItem>): List<Pair<String, Float>> {
+        // Group by day for the last 7 days
+        val dateFormat = SimpleDateFormat("dd MMM", Locale.getDefault())
+        val last7Days = (0..6).map { i ->
+            val cal = Calendar.getInstance()
+            cal.add(Calendar.DAY_OF_YEAR, -i)
+            dateFormat.format(cal.time)
+        }.reversed()
+
+        // Mock grouping (in real app, parse history dates)
+        // For demo, we'll just show transaction counts per day
+        return last7Days.map { day ->
+            day to (1..10).random().toFloat() 
+        }
     }
 }
