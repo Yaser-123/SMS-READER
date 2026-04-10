@@ -24,44 +24,44 @@ app.post('/api/sms', async (req, res) => {
             return res.status(400).json({ status: 'error', message: 'Invalid request body' });
         }
         
-        // 1. Cleanup Junk
         await pruneJunk();
 
-        // 2. Parse Incoming Batch
-        const parsedBatch = rawMessages
-            .map(msg => ({
-                raw: msg.body,
-                sender: msg.sender,
-                date: msg.date,
-                parsed: parseStrictTransaction({ body: msg.body, sender: msg.sender, date: msg.date })
-            }))
-            .filter(item => item.parsed !== null);
+        // 1. Parsing and Early Deduplication (The "900-Score" Fix)
+        // We filter by reference_number IMMEDIATELY to prevent double-counting in memory
+        const uniqueEntriesMap = new Map();
+        
+        rawMessages.forEach(msg => {
+            const parsed = parseStrictTransaction({ body: msg.body, sender: msg.sender, date: msg.date });
+            if (parsed && !uniqueEntriesMap.has(parsed.reference_number)) {
+                uniqueEntriesMap.set(parsed.reference_number, {
+                    ...parsed,
+                    raw_message: msg.body
+                });
+            }
+        });
 
-        const currentTransactions = parsedBatch.map(item => ({
-            ...item.parsed,
-            raw_message: item.raw 
-        }));
+        const currentTransactions = Array.from(uniqueEntriesMap.values());
 
-        // 3. PERSIST (Await background save)
+        // 2. Persist to DB
         if (currentTransactions.length > 0) {
             await saveTransactions(currentTransactions);
         }
 
-        // 4. IN-MEMORY MERGER
+        // 3. Merging with Database History
         const historyData = await getHistory();
         const existingHistory = historyData.transactions || [];
         
-        const currentRefs = new Set(currentTransactions.map(t => t.reference_number));
-        const mergedHistory = [
-            ...currentTransactions,
-            ...existingHistory.filter(t => !currentRefs.has(t.reference_number))
-        ];
+        // Final deduplicated list for calculation
+        const masterRefMap = new Map();
+        [...existingHistory, ...currentTransactions].forEach(tx => {
+            masterRefMap.set(tx.reference_number, tx);
+        });
+        const mergedHistory = Array.from(masterRefMap.values());
 
-        // 5. Calculate Intelligence (Scoring)
+        // 4. Calculate Intelligence
         const features = calculateFeatures(mergedHistory);
         const scoreResult = calculateScore(features);
         
-        // STRICT INTEGER CASTING FOR ANDROID GSON
         const b = scoreResult.breakdown;
         const breakdown = {
             base: parseInt(b.base) || 300,
@@ -75,22 +75,21 @@ app.post('/api/sms', async (req, res) => {
         const insights = generateInsights(features);
         const summary = generateSummary(features, score);
 
-        // Trend
         let scoreChange = 0;
         if (historyData.latestScores.length > 0) {
             scoreChange = score - historyData.latestScores[0].score;
         }
 
-        // 6. Save performance history
+        // 5. Save performance history
         await saveScore({ score, risk, features, breakdown });
 
-        // --- TRUTH LOGS ---
-        console.log(`\n📡 Sync Received: ${currentTransactions.length} messages.`);
-        console.log(`📊 Merged History: ${mergedHistory.length} unique tx.`);
-        console.log(`🎯 Score Calculated: ${score} (${risk})`);
+        // --- PRODUCTION LOGS (As requested) ---
+        console.log(`\n--- Received ${rawMessages.length} messages ---`);
+        console.log(`>>> Analytics Processed: SCORE ${score} | RISK ${risk}`);
+        console.log(`>>> Summary: ${summary}`);
         console.log(`✅ JSON_DEBUG_SENT:`, JSON.stringify({ breakdown, score, risk }));
 
-        // 7. Response
+        // 6. Response
         res.json({
             status: 'success',
             score: score,
@@ -116,15 +115,13 @@ app.get('/api/history', async (req, res) => {
         const transactions = historyData.transactions;
         const latestScore = historyData.latestScores.length > 0 ? historyData.latestScores[0] : null;
 
-        let dynamicBreakdown = null;
-        let dynamicLoans = [];
-
         if (latestScore) {
             const features = calculateFeatures(transactions);
             const scoreResult = calculateScore(features);
             const b = scoreResult.breakdown;
-            // FIXED: Removed 'const' to avoid shadowing outer let
-            dynamicBreakdown = {
+            
+            // FIXED: Variable shadowing prevented
+            const dynamicBreakdown = {
                 base: parseInt(b.base) || 300,
                 income: parseInt(b.income) || 0,
                 activity: parseInt(b.activity) || 0,
@@ -155,7 +152,6 @@ app.get('/api/history', async (req, res) => {
     }
 });
 
-// Start server
 app.listen(PORT, () => {
     console.log(`\n🚀 SMS Fintech Intelligence Engine running on http://localhost:${PORT}`);
 });

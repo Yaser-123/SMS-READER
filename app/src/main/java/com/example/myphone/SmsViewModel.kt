@@ -140,11 +140,14 @@ class SmsViewModel(application: Application) : AndroidViewModel(application) {
 
                 val syncResult = repository.syncSms(messages)
                 syncResult.onSuccess { profile ->
-                    // Re-fetch everything to ensure history list is synced with the new score
+                    // SECURE SYNC: Immediately fetch unified history to ensure the list and the score are in sync
                     val historyResult = repository.getHistory()
                     historyResult.onSuccess { history ->
+                        // Atomic state update: Profile and History are set together
                         _uiState.value = UiState.Success(profile, history.transactions)
+                        Log.d("SMS_DEBUG", "Dashboard Locked: Score=${profile.score}, Loans=${profile.eligibleLoans?.size ?: 0}")
                     }.onFailure {
+                        // Fallback: Show sync results even if history fetch fails
                         _uiState.value = UiState.Success(profile, emptyList())
                     }
                 }.onFailure {
