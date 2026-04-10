@@ -251,7 +251,12 @@ fun CreditScoreCard(profile: CreditProfileResponse) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .shadow(elevation = 16.dp, color = NetflixRed.copy(0.15f), shape = RoundedCornerShape(24.dp)),
+            .shadow(
+                elevation = 16.dp, 
+                ambientColor = NetflixRed, 
+                spotColor = NetflixRed, 
+                shape = RoundedCornerShape(24.dp)
+            ),
         shape = RoundedCornerShape(24.dp),
         colors = CardDefaults.cardColors(containerColor = CardBackground)
     ) {
@@ -278,7 +283,10 @@ fun CreditScoreCard(profile: CreditProfileResponse) {
                 )
             }
             
-            Surface(color = riskColor.copy(0.1f), shape = RoundedCornerShape(8.dp), border = Stroke(1.dp).let { null }) {
+            Surface(
+                color = riskColor.copy(0.1f), 
+                shape = RoundedCornerShape(8.dp)
+            ) {
                 Text(
                     "${profile.risk} Risk Profile",
                     Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
