@@ -80,9 +80,19 @@ class SmsViewModel(application: Application) : AndroidViewModel(application) {
 
                 val syncResult = repository.syncSms(messages)
                 syncResult.onSuccess { profile ->
+                    // Re-fetch everything to ensure UI is 100% in sync with the new calculated state
                     val historyResult = repository.getHistory()
                     historyResult.onSuccess { history ->
-                        _uiState.value = UiState.Success(profile, history.transactions)
+                        val finalProfile = history.latestScore?.let {
+                            profile.copy(
+                                score = it.score,
+                                risk = it.risk,
+                                breakdown = it.breakdown ?: profile.breakdown,
+                                eligibleLoans = it.eligibleLoans ?: profile.eligibleLoans
+                            )
+                        } ?: profile
+                        
+                        _uiState.value = UiState.Success(finalProfile, history.transactions)
                     }.onFailure {
                         _uiState.value = UiState.Success(profile, emptyList())
                     }

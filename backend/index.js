@@ -24,13 +24,11 @@ app.post('/api/sms', async (req, res) => {
             return res.status(400).json({ status: 'error', message: 'Invalid request body' });
         }
         
-        
-        
-        // --- STEP 0: SMART PRUNE ---
-        // Only wipe NULL/0 junk, NOT the whole history
+        // --- STEP 1: CLEANUP ---
+        // Purge NULL/0 junk before processing
         await pruneJunk();
 
-        // 1. Parse incoming messages (STRICT VALIDATION PIPELINE)
+        // --- STEP 2: PARSE & FILTER ---
         const parsedBatch = rawMessages
             .map(msg => ({
                 raw: msg.body,
@@ -44,25 +42,28 @@ app.post('/api/sms', async (req, res) => {
             }))
             .filter(item => item.parsed !== null);
 
-        // Map to flat transaction objects for DB insertion
+        console.log(`📡 Sync Received: ${parsedBatch.length} BOI transactions found.`);
+
         const finalTransactions = parsedBatch.map(item => ({
             ...item.parsed,
             raw_message: item.raw 
         }));
 
-        // 2. Save new transactions with de-duplication
+        // --- STEP 3: PERSIST DATA (CRITICAL: Save before scoring) ---
         if (finalTransactions.length > 0) {
             await saveTransactions(finalTransactions);
         }
 
-        // 3. Fetch full history and previous points
+        // --- STEP 4: FETCH FULL HISTORY (Freshly updated) ---
         const historyData = await getHistory();
         const allTransactions = historyData.transactions;
         const lastTwoScores = historyData.latestScores;
 
+        console.log(`📊 Analysis Engine: Processing history of ${allTransactions.length} records.`);
+
         const features = calculateFeatures(allTransactions);
 
-        // 5. Intelligence Engine (Explainable Scoring)
+        // --- STEP 5: INTELLIGENCE ENGINE (Explainable Scoring) ---
         const scoreResult = calculateScore(features);
         const score = scoreResult.total;
         const breakdown = scoreResult.breakdown;
@@ -71,21 +72,22 @@ app.post('/api/sms', async (req, res) => {
         const insights = generateInsights(features);
         const summary = generateSummary(features, score);
 
-        // 6. Trend Analysis (Score Change)
+        // Trend Analysis
         let scoreChange = 0;
         if (lastTwoScores.length > 0) {
             scoreChange = score - lastTwoScores[0].score;
         }
 
-        // 7. Save new score entry (Breakdown is included but not critical for UI retrieval)
+        // --- STEP 6: SAVE FINAL PERFORMANCE ---
         await saveScore({ score, risk, features, breakdown });
 
+        // --- STEP 7: RESPONSE (Fully Hydrated) ---
         res.json({
             status: 'success',
             score: score,
             risk: risk,
             scoreChange: scoreChange,
-            breakdown: breakdown, // Calculated Fresh
+            breakdown: breakdown, // Calculated from fresh history!
             summary: summary,
             features: features,
             insights: insights,
@@ -106,19 +108,22 @@ app.get('/api/history', async (req, res) => {
         const latestScore = historyData.latestScores.length > 0 ? historyData.latestScores[0] : null;
 
         let dynamicBreakdown = null;
+        let dynamicLoans = [];
+
         if (latestScore) {
-            // Re-calculate features and score to get the correct breakdown for the UI
+            // Recalculate features and score to ensure breakdown parity
             const features = calculateFeatures(transactions);
             const scoreResult = calculateScore(features);
             dynamicBreakdown = scoreResult.breakdown;
+            dynamicLoans = getLoans(latestScore.score);
         }
 
         res.json({
             transactions: transactions,
             latestScore: latestScore ? {
                 ...latestScore,
-                breakdown: dynamicBreakdown, // Overlay fresh breakdown
-                eligibleLoans: getLoans(latestScore.score) // HYDRATE LOANS FOR HISTORY
+                breakdown: dynamicBreakdown,
+                eligibleLoans: dynamicLoans
             } : null,
             scoreChange: historyData.latestScores.length >= 2 ? 
                 (historyData.latestScores[0].score - historyData.latestScores[1].score) : 0

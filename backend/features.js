@@ -24,10 +24,12 @@ function calculateFeatures(transactions) {
         .filter(tx => tx.amount && tx.amount > 0)
         .forEach(tx => {
             const typeLower = (tx.type || "").toLowerCase().trim();
+            const amount = parseFloat(tx.amount || 0);
+            
             if (typeLower === 'credit') {
-                totalCredit += tx.amount;
+                totalCredit += amount;
             } else if (typeLower === 'debit') {
-                totalDebit += tx.amount;
+                totalDebit += amount;
             }
 
             // Count merchant frequency
