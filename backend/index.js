@@ -88,7 +88,7 @@ app.post('/api/sms', async (req, res) => {
             summary,
             features,
             insights,
-            eligibleLoans: getLoans(score)
+            eligibleLoans: await getLoans(score)
         });
 
     } catch (error) {
@@ -130,7 +130,7 @@ app.get('/api/history', async (req, res) => {
                 breakdown,
                 features,
                 insights,
-                eligibleLoans: getLoans(latestScore.score)
+                eligibleLoans: await getLoans(latestScore.score)
             },
             scoreChange: historyData.latestScores.length >= 2
                 ? (historyData.latestScores[0].score - historyData.latestScores[1].score)
