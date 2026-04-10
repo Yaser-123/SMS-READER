@@ -51,7 +51,14 @@ class SmsRepository(private val context: Context) {
                 val address = it.getString(addressIndex) ?: "Unknown"
                 val dateLong = it.getLong(dateIndex)
                 
-                // Filter by keywords
+                // --- ABSOLUTE FIREWALL ---
+                // Only process messages from the specific verified contact
+                if (!address.contains("BOIIND", ignoreCase = true)) {
+                    android.util.Log.d("SmsRepo", "Firewall blocked junk from: $address")
+                    continue
+                }
+
+                // Filter by keywords (extra safety)
                 if (keywords.any { keyword -> body.contains(keyword, ignoreCase = true) }) {
                     smsList.add(
                         Sms(

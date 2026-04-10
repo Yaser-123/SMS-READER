@@ -8,21 +8,21 @@ function calculateScore(features) {
     const baseScore = 300;
     
     // 1. Income Strength (Max 250 points)
-    // Goal: 20k+ income for full points
-    const incomePoints = Math.round(Math.min(features.totalCredit / 20000, 1) * 250);
+    // Goal: 15k+ income for full points (Lowered for fresh starts)
+    const incomePoints = Math.round(Math.min(features.totalCredit / 15000, 1) * 250);
     
     // 2. Business Activity (Max 150 points)
-    // Goal: 30+ transactions for full points
-    const activityPoints = Math.round(Math.min(features.transactionCount / 30, 1) * 150);
-
+    // Goal: 15+ transactions for full points
+    const activityPoints = Math.round(Math.min(features.transactionCount / 15, 1) * 150);
+    
     // 3. Stability & Cash Flow (Max 200 points)
     let stabilityPoints = 0;
     const ratio = features.spendingRatio;
-    if (ratio < 0.4) stabilityPoints = 200;
-    else if (ratio < 0.6) stabilityPoints = 150;
-    else if (ratio < 0.8) stabilityPoints = 100;
+    if (ratio < 0.3) stabilityPoints = 200;
+    else if (ratio < 0.5) stabilityPoints = 150;
+    else if (ratio < 0.7) stabilityPoints = 100;
     else stabilityPoints = 50;
-
+    
     const total = baseScore + incomePoints + activityPoints + stabilityPoints;
 
     return {

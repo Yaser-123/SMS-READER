@@ -10,15 +10,21 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
  * NUCLEAR RESET: Wipes all transactions and scores
  */
 async function clearAllData() {
-    console.log("🚀 Performing Nuclear Database Reset...");
+    console.log("🚀 Initializing Nuclear Clean-Slate...");
     
-    // Delete all scores
-    await supabase.from('scores').delete().neq('score', -1);
-    
-    // Delete all transactions
-    await supabase.from('transactions').delete().neq('amount', -1);
-    
-    console.log("✅ Database Wiped Clean.");
+    try {
+        // Use a filter that catches everything (ID not equal to empty)
+        const { error: sError } = await supabase.from('scores').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+        const { error: tError } = await supabase.from('transactions').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+        
+        if (sError || tError) {
+            console.warn("⚠️ Cleanup partially failed: RLS might be active. Ensure Delete is enabled.");
+        } else {
+            console.log("✅ Cleanup Complete. System Reset.");
+        }
+    } catch (e) {
+        console.error("❌ Cleanup Error:", e.message);
+    }
 }
 
 /**
