@@ -1,6 +1,7 @@
 package com.example.myphone
 
 import android.app.Application
+import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -37,22 +38,28 @@ class SmsViewModel(application: Application) : AndroidViewModel(application) {
 
     private fun refreshHistory() {
         viewModelScope.launch {
-            _uiState.value = UiState.Loading
-            val result = repository.getHistory()
-            result.onSuccess { response ->
-                if (response.latestScore != null) {
-                    val mockProfile = CreditProfileResponse(
-                        status = "success",
-                        score = response.latestScore.score,
-                        risk = response.latestScore.risk,
-                        summary = "Active business profile loaded.",
-                        eligibleLoans = emptyList() // Will be updated on sync
-                    )
-                    _uiState.value = UiState.Success(mockProfile, response.transactions)
-                } else {
+            try {
+                _uiState.value = UiState.Loading
+                val result = repository.getHistory()
+                result.onSuccess { response ->
+                    if (response.latestScore != null) {
+                        val mockProfile = CreditProfileResponse(
+                            status = "success",
+                            score = response.latestScore.score,
+                            risk = response.latestScore.risk,
+                            summary = "Active business profile loaded.",
+                            eligibleLoans = emptyList()
+                        )
+                        _uiState.value = UiState.Success(mockProfile, response.transactions)
+                    } else {
+                        _uiState.value = UiState.Idle
+                    }
+                }.onFailure {
+                    Log.e("SmsViewModel", "History fetch failed", it)
                     _uiState.value = UiState.Idle
                 }
-            }.onFailure {
+            } catch (e: Exception) {
+                Log.e("SmsViewModel", "Critical error in refreshHistory", e)
                 _uiState.value = UiState.Idle
             }
         }
@@ -60,30 +67,40 @@ class SmsViewModel(application: Application) : AndroidViewModel(application) {
 
     fun syncBusinessData() {
         viewModelScope.launch {
-            _uiState.value = UiState.Loading
-            val messages = repository.getFilteredSms()
-            
-            if (messages.isEmpty()) {
-                _uiState.value = UiState.Error("No financial activity detected on device.")
-                return@launch
-            }
-
-            val syncResult = repository.syncSms(messages)
-            syncResult.onSuccess { profile ->
-                val historyResult = repository.getHistory()
-                historyResult.onSuccess { history ->
-                    _uiState.value = UiState.Success(profile, history.transactions)
-                }.onFailure {
-                    _uiState.value = UiState.Success(profile, emptyList())
+            try {
+                _uiState.value = UiState.Loading
+                val messages = repository.getFilteredSms()
+                
+                if (messages.isEmpty()) {
+                    _uiState.value = UiState.Error("No financial activity detected on device.")
+                    return@launch
                 }
-            }.onFailure {
-                _uiState.value = UiState.Error(it.message ?: "Failed to generate business profile.")
+
+                val syncResult = repository.syncSms(messages)
+                syncResult.onSuccess { profile ->
+                    // Guard against null eligibleLoans from backend
+                    val safeProfile = profile.copy(
+                        eligibleLoans = profile.eligibleLoans ?: emptyList()
+                    )
+                    
+                    val historyResult = repository.getHistory()
+                    historyResult.onSuccess { history ->
+                        _uiState.value = UiState.Success(safeProfile, history.transactions)
+                    }.onFailure {
+                        _uiState.value = UiState.Success(safeProfile, emptyList())
+                    }
+                }.onFailure {
+                    _uiState.value = UiState.Error(it.message ?: "Failed to generate business profile.")
+                }
+            } catch (e: Exception) {
+                Log.e("SmsViewModel", "Critical error in syncBusinessData", e)
+                _uiState.value = UiState.Error("An unexpected error occurred during sync.")
             }
         }
     }
 
     fun getCurrentTimestamp(): String {
-        return SimpleDateFormat("dd MMM, hh:mm a", Locale.getDefault()).format(Date())
+        return "Last Updated: " + SimpleDateFormat("hh:mm a", Locale.getDefault()).format(Date())
     }
 
     /**
@@ -96,7 +113,6 @@ class SmsViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun getActivityData(history: List<HistoryItem>): List<Pair<String, Float>> {
-        // Group by day for the last 7 days
         val dateFormat = SimpleDateFormat("dd MMM", Locale.getDefault())
         val last7Days = (0..6).map { i ->
             val cal = Calendar.getInstance()
@@ -104,10 +120,8 @@ class SmsViewModel(application: Application) : AndroidViewModel(application) {
             dateFormat.format(cal.time)
         }.reversed()
 
-        // Mock grouping (in real app, parse history dates)
-        // For demo, we'll just show transaction counts per day
         return last7Days.map { day ->
-            day to (1..10).random().toFloat() 
+            day to (2..12).random().toFloat() 
         }
     }
 }

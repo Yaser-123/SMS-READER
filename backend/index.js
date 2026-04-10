@@ -27,13 +27,15 @@ app.post('/api/sms', async (req, res) => {
 
         console.log(`\n--- Received ${rawMessages.length} messages ---`);
         
-        // 1. Parse incoming messages
-        const parsedBatch = rawMessages.map(msg => ({
-            raw: msg.body,
-            sender: msg.sender,
-            date: msg.date,
-            parsed: parseUPIMessage(msg.body)
-        }));
+        // 1. Parse incoming messages and FILTER OUT invalid ones (0.0 or non-financial)
+        const parsedBatch = rawMessages
+            .map(msg => ({
+                raw: msg.body,
+                sender: msg.sender,
+                date: msg.date,
+                parsed: parseUPIMessage(msg.body)
+            }))
+            .filter(item => item.parsed !== null);
 
         // 2. Save new transactions to Supabase (Async)
         await saveTransactions(parsedBatch);

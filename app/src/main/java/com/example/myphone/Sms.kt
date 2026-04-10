@@ -15,21 +15,21 @@ data class Sms(
  * Data model for Business Metrics
  */
 data class BusinessFeatures(
-    @SerializedName("totalCredit") val totalCredit: Double,
-    @SerializedName("totalDebit") val totalDebit: Double,
-    @SerializedName("netBalance") val netBalance: Double,
-    @SerializedName("transactionCount") val transactionCount: Int,
-    @SerializedName("spendingRatio") val spendingRatio: Double,
-    @SerializedName("avgTransactionValue") val avgTransactionValue: Double
+    @SerializedName("totalCredit") val totalCredit: Double = 0.0,
+    @SerializedName("totalDebit") val totalDebit: Double = 0.0,
+    @SerializedName("netBalance") val netBalance: Double = 0.0,
+    @SerializedName("transactionCount") val transactionCount: Int = 0,
+    @SerializedName("spendingRatio") val spendingRatio: Double = 0.0,
+    @SerializedName("avgTransactionValue") val avgTransactionValue: Double = 0.0
 )
 
 /**
  * Data model for Explainable Insights
  */
 data class CreditInsights(
-    @SerializedName("income_strength") val incomeStrength: String,
-    @SerializedName("spending_behavior") val spendingBehavior: String,
-    @SerializedName("activity_level") val activityLevel: String
+    @SerializedName("income_strength") val incomeStrength: String = "N/A",
+    @SerializedName("spending_behavior") val spendingBehavior: String = "N/A",
+    @SerializedName("activity_level") val activityLevel: String = "N/A"
 )
 
 /**
@@ -48,14 +48,14 @@ data class LoanProduct(
  * Main Credit Profile response from backend
  */
 data class CreditProfileResponse(
-    @SerializedName("status") val status: String,
-    @SerializedName("score") val score: Int,
-    @SerializedName("risk") val risk: String,
-    @SerializedName("summary") val summary: String,
-    @SerializedName("features") val features: BusinessFeatures? = null,
-    @SerializedName("insights") val insights: CreditInsights? = null,
+    @SerializedName("status") val status: String = "idle",
+    @SerializedName("score") val score: Int = 300,
+    @SerializedName("risk") val risk: String = "UNKNOWN",
+    @SerializedName("summary") val summary: String = "",
+    @SerializedName("features") val features: BusinessFeatures? = BusinessFeatures(),
+    @SerializedName("insights") val insights: CreditInsights? = CreditInsights(),
     @SerializedName("topMerchants") val topMerchants: List<String> = emptyList(),
-    @SerializedName("eligibleLoans") val eligibleLoans: List<LoanProduct> = emptyList()
+    @SerializedName("eligibleLoans") val eligibleLoans: List<LoanProduct>? = emptyList()
 )
 
 /**
@@ -74,7 +74,7 @@ data class HistoryItem(
  * Full History Response
  */
 data class HistoryResponse(
-    @SerializedName("transactions") val transactions: List<HistoryItem>,
+    @SerializedName("transactions") val transactions: List<HistoryItem> = emptyList(),
     @SerializedName("latestScore") val latestScore: ScoreEntry? = null
 )
 

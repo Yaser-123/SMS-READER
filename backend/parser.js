@@ -15,21 +15,21 @@ function parseUPIMessage(body) {
     };
 
     // 1. Normalize and Extract Amount
-    // Regex: /(Rs.?|₹|INR)\s?([\d,]+(\.\d+)?)/
-    const amountRegex = /(Rs.?|₹|INR)\s?([\d,]+(?:\.\d+)?)/i;
+    // Improved Regex: Supports Rs., ₹, INR with proper dot escaping
+    const amountRegex = /(Rs\.?|₹|INR)\s?([\d,]+(?:\.\d+)?)/i;
     const amountMatch = body.match(amountRegex);
     
     if (amountMatch) {
         // Remove commas and parse to float
         const rawAmount = amountMatch[2].replace(/,/g, '');
-        data.amount = parseFloat(rawAmount);
+        const amount = parseFloat(rawAmount);
 
-        // DISCARD if amount <= 0 or NaN
-        if (isNaN(data.amount) || data.amount <= 0) {
+        // STRICT VALIDATION: Return null if invalid, zero, or negative
+        if (!amount || isNaN(amount) || amount <= 0) {
             return null;
         }
+        data.amount = amount;
     } else {
-        // If no amount found, it's not a financial transaction we care about
         return null;
     }
 
@@ -40,7 +40,7 @@ function parseUPIMessage(body) {
     } else if (bodyLower.includes("credited") || bodyLower.includes("received from") || bodyLower.includes("received in")) {
         data.type = "credit";
     } else {
-        return null; // Discard ambiguous messages
+        return null; 
     }
 
     // 3. Extract Merchant Name

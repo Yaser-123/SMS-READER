@@ -16,6 +16,8 @@ import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalContext
@@ -23,6 +25,14 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+
+// --- STARTUP DESIGN TOKENS (Netflix Style) ---
+val NetflixRed = Color(0xFFDB0000)
+val DarkBackground = Color(0xFF000000)
+val CardBackground = Color(0xFF1A1A1A)
+val TextPrimary = Color(0xFFFFFFFF)
+val TextSecondary = Color(0xFFB3B3B3)
+val AccentDarkRed = Color(0xFF831010)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -34,37 +44,38 @@ fun SmsScreen(viewModel: SmsViewModel) {
         topBar = {
             Column {
                 TopAppBar(
-                    title = { Text("BizCredit Intelligence", fontWeight = FontWeight.Bold) },
+                    title = { Text("BizCredit intelligence", fontWeight = FontWeight.Bold, color = TextPrimary) },
                     colors = TopAppBarDefaults.topAppBarColors(
-                        containerColor = Color(0xFF1A237E),
-                        titleContentColor = Color.White
+                        containerColor = DarkBackground,
+                        titleContentColor = TextPrimary
                     )
                 )
                 TabRow(
                     selectedTabIndex = currentTab,
-                    containerColor = Color(0xFF1A237E),
-                    contentColor = Color.White,
+                    containerColor = DarkBackground,
+                    contentColor = NetflixRed,
+                    divider = {},
                     indicator = { tabPositions ->
                         TabRowDefaults.SecondaryIndicator(
                             Modifier.tabIndicatorOffset(tabPositions[currentTab]),
-                            color = Color(0xFF4CAF50)
+                            color = NetflixRed
                         )
                     }
                 ) {
                     Tab(
                         selected = currentTab == 0,
                         onClick = { viewModel.setTab(0) },
-                        text = { Text("Overview") }
+                        text = { Text("Overview", color = if (currentTab == 0) NetflixRed else TextSecondary) }
                     )
                     Tab(
                         selected = currentTab == 1,
                         onClick = { viewModel.setTab(1) },
-                        text = { Text("Analytics") }
+                        text = { Text("Analytics", color = if (currentTab == 1) NetflixRed else TextSecondary) }
                     )
                     Tab(
                         selected = currentTab == 2,
                         onClick = { viewModel.setTab(2) },
-                        text = { Text("Loans") }
+                        text = { Text("Loans", color = if (currentTab == 2) NetflixRed else TextSecondary) }
                     )
                 }
             }
@@ -72,10 +83,10 @@ fun SmsScreen(viewModel: SmsViewModel) {
         floatingActionButton = {
             ExtendedFloatingActionButton(
                 onClick = { viewModel.syncBusinessData() },
-                icon = { Icon(Icons.Default.Refresh, contentDescription = null) },
-                text = { Text("Sync Data") },
-                containerColor = Color(0xFF4CAF50),
-                contentColor = Color.White
+                icon = { Icon(Icons.Default.Refresh, contentDescription = null, tint = TextPrimary) },
+                text = { Text("Sync Data", color = TextPrimary) },
+                containerColor = NetflixRed,
+                contentColor = TextPrimary
             )
         }
     ) { innerPadding ->
@@ -83,7 +94,7 @@ fun SmsScreen(viewModel: SmsViewModel) {
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
-                .background(Color(0xFFF1F3F4))
+                .background(DarkBackground)
         ) {
             when (val state = uiState) {
                 is UiState.Loading -> {
@@ -112,7 +123,7 @@ fun SmsScreen(viewModel: SmsViewModel) {
 // --- TABS ---
 
 @Composable
-fun OverviewTab(profile: CreditProfileResponse, history: List<HistoryItem>, lastUpdated: String) {
+fun OverviewTab(profile: CreditProfileResponse, history: List<HistoryItem>, status: String) {
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(16.dp),
@@ -123,10 +134,10 @@ fun OverviewTab(profile: CreditProfileResponse, history: List<HistoryItem>, last
         item { EvaluationInsightsList(profile.insights) }
         item { 
             Text(
-                "Last Updated: $lastUpdated",
+                status,
                 modifier = Modifier.fillMaxWidth(),
                 textAlign = TextAlign.Center,
-                color = Color.Gray,
+                color = TextSecondary,
                 fontSize = 12.sp
             )
         }
@@ -139,37 +150,37 @@ fun AnalyticsTab(history: List<HistoryItem>, viewModel: SmsViewModel) {
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(16.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
+        verticalArrangement = Arrangement.spacedBy(20.dp)
     ) {
         item {
-            AnalyticsTitle("Cash Flow Distribution")
+            AnalyticsTitle("Cash flow distribution")
             Card(
                 modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = Color.White)
+                colors = CardDefaults.cardColors(containerColor = CardBackground)
             ) {
                 val (income, expense) = viewModel.getIncomeExpenseData(history)
-                Column(modifier = Modifier.padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                Column(modifier = Modifier.padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                     IncomeExpensePieChart(income, expense)
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Row(horizontalArrangement = Arrangement.spacedBy(24.dp)) {
-                        LegendItem("Inflow", Color(0xFF4CAF50))
-                        LegendItem("Outflow", Color(0xFFF44336))
+                    Spacer(modifier = Modifier.height(24.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(32.dp)) {
+                        LegendItem("Inflow", NetflixRed)
+                        LegendItem("Outflow", Color(0xFF444444))
                     }
                 }
             }
         }
 
         item {
-            AnalyticsTitle("Activity Frequency (Last 7 Days)")
+            AnalyticsTitle("Business activity Trends")
             Card(
                 modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = Color.White)
+                colors = CardDefaults.cardColors(containerColor = CardBackground)
             ) {
                 val activityData = viewModel.getActivityData(history)
-                Column(modifier = Modifier.padding(16.dp)) {
+                Column(modifier = Modifier.padding(24.dp)) {
                     ActivityBarChart(activityData)
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text("Proof of active business transaction volume", fontSize = 11.sp, color = Color.Gray)
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Text("Transaction density monitoring", fontSize = 11.sp, color = TextSecondary)
                 }
             }
         }
@@ -183,7 +194,7 @@ fun AnalyticsTab(history: List<HistoryItem>, viewModel: SmsViewModel) {
 }
 
 @Composable
-fun LoansTab(loans: List<LoanProduct>) {
+fun LoansTab(loans: List<LoanProduct>?) {
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(16.dp),
@@ -191,28 +202,28 @@ fun LoansTab(loans: List<LoanProduct>) {
     ) {
         item {
             Text(
-                "Loan Marketplace",
+                "Loan marketplace",
                 style = MaterialTheme.typography.headlineSmall,
                 fontWeight = FontWeight.Bold,
-                color = Color(0xFF1B237E)
+                color = TextPrimary
             )
-            Text("Discover credit products suited for your profile", color = Color.Gray, fontSize = 14.sp)
+            Text("Personalized credit products for you", color = TextSecondary, fontSize = 14.sp)
         }
 
-        if (loans.isEmpty()) {
+        if (loans.isNullOrEmpty()) {
             item {
                 Card(
                     modifier = Modifier.fillMaxWidth().padding(top = 32.dp),
-                    colors = CardDefaults.cardColors(containerColor = Color.White)
+                    colors = CardDefaults.cardColors(containerColor = CardBackground)
                 ) {
-                    Column(Modifier.padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                        Icon(Icons.Default.Lock, contentDescription = null, modifier = Modifier.size(48.dp), tint = Color.LightGray)
+                    Column(Modifier.padding(32.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                        Icon(Icons.Default.Lock, contentDescription = null, modifier = Modifier.size(48.dp), tint = AccentDarkRed)
                         Spacer(modifier = Modifier.height(16.dp))
-                        Text("No Offers Available", fontWeight = FontWeight.Bold)
+                        Text("No Offers available", fontWeight = FontWeight.Bold, color = TextPrimary)
                         Text(
-                            "Improve your BizCredit score by syncing more transaction data to unlock higher loan limits.",
+                            "Improve your score to unlock higher credit limits and micro-loan opportunities.",
                             textAlign = TextAlign.Center,
-                            color = Color.Gray,
+                            color = TextSecondary,
                             fontSize = 14.sp
                         )
                     }
@@ -234,59 +245,80 @@ fun CreditScoreCard(profile: CreditProfileResponse) {
     val riskColor = when (profile.risk) {
         "LOW" -> Color(0xFF4CAF50)
         "MEDIUM" -> Color(0xFFFFC107)
-        else -> Color(0xFFF44336)
+        else -> NetflixRed
     }
 
     Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(containerColor = Color(0xFF1A237E))
+        modifier = Modifier
+            .fillMaxWidth()
+            .shadow(elevation = 16.dp, color = NetflixRed.copy(0.15f), shape = RoundedCornerShape(24.dp)),
+        shape = RoundedCornerShape(24.dp),
+        colors = CardDefaults.cardColors(containerColor = CardBackground)
     ) {
-        Column(Modifier.padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-            Text("Merchant Health Score", color = Color.White.copy(0.7f), fontSize = 14.sp)
-            Text("${profile.score}", fontSize = 56.sp, fontWeight = FontWeight.Bold, color = Color.White)
+        Column(Modifier.padding(32.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+            Text("Health Score", color = TextSecondary, fontSize = 14.sp)
             
-            Surface(color = riskColor, shape = RoundedCornerShape(8.dp)) {
+            // SCORE WITH GLOW
+            Box(contentAlignment = Alignment.Center) {
+                // Subtle Red Glow
+                Canvas(modifier = Modifier.size(100.dp)) {
+                    drawCircle(
+                        brush = Brush.radialGradient(
+                            colors = listOf(NetflixRed.copy(0.2f), Color.Transparent),
+                            center = center,
+                            radius = size.width / 1f
+                        )
+                    )
+                }
                 Text(
-                    "${profile.risk} RISK",
-                    Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
-                    fontWeight = FontWeight.Bold,
-                    color = if (profile.risk == "MEDIUM") Color.Black else Color.White
+                    "${profile.score}", 
+                    fontSize = 64.sp, 
+                    fontWeight = FontWeight.ExtraBold, 
+                    color = NetflixRed
                 )
             }
             
-            Spacer(modifier = Modifier.height(16.dp))
-            HorizontalDivider(color = Color.White.copy(0.1f))
-            Spacer(modifier = Modifier.height(16.dp))
+            Surface(color = riskColor.copy(0.1f), shape = RoundedCornerShape(8.dp), border = Stroke(1.dp).let { null }) {
+                Text(
+                    "${profile.risk} Risk Profile",
+                    Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
+                    fontWeight = FontWeight.Bold,
+                    color = riskColor
+                )
+            }
+            
+            Spacer(modifier = Modifier.height(24.dp))
+            HorizontalDivider(color = Color.White.copy(0.05f))
+            Spacer(modifier = Modifier.height(24.dp))
 
-            val eligibilityText = if (profile.score >= 650) "✅ High Loan Eligibility" else "⚠️ Improve activity to qualify"
-            Text(eligibilityText, color = Color.White, fontWeight = FontWeight.Bold)
-            Text(profile.summary, textAlign = TextAlign.Center, color = Color.White.copy(0.8f), fontSize = 12.sp)
+            val eligibilityText = if (profile.score >= 650) "✅ High Loan Eligibility" else "⚠️ Build history to qualify"
+            Text(eligibilityText, color = TextPrimary, fontWeight = FontWeight.Bold)
+            Text(profile.summary, textAlign = TextAlign.Center, color = TextSecondary, fontSize = 12.sp)
         }
     }
 }
 
 @Composable
 fun BusinessMetricsGrid(features: BusinessFeatures?) {
-    if (features == null) return
+    val feat = features ?: BusinessFeatures()
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            MetricBox("Monthly Inflow", "₹${features.totalCredit}", Color(0xFFE8F5E9), Color(0xFF2E7D32), Modifier.weight(1f))
-            MetricBox("Business Outflow", "₹${features.totalDebit}", Color(0xFFFFEBEE), Color(0xFFC62828), Modifier.weight(1f))
+            MetricBox("Cash Inflow", "₹${feat.totalCredit}", NetflixRed, Modifier.weight(1f))
+            MetricBox("Outflow", "₹${feat.totalDebit}", TextSecondary, Modifier.weight(1f))
         }
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            MetricBox("Net Cash Flow", "₹${features.netBalance}", Color(0xFFE3F2FD), Color(0xFF1565C0), Modifier.weight(1f))
-            MetricBox("Activity Count", "${features.transactionCount}", Color(0xFFFFF3E0), Color(0xFFE65100), Modifier.weight(1f))
+            MetricBox("Net Flow", "₹${feat.netBalance}", TextPrimary, Modifier.weight(1f))
+            MetricBox("Activity", "${feat.transactionCount}", TextPrimary, Modifier.weight(1f))
         }
     }
 }
 
 @Composable
-fun MetricBox(label: String, value: String, bgColor: Color, textColor: Color, modifier: Modifier) {
-    Card(modifier = modifier, colors = CardDefaults.cardColors(containerColor = bgColor)) {
+fun MetricBox(label: String, value: String, accentColor: Color, modifier: Modifier) {
+    Card(modifier = modifier, colors = CardDefaults.cardColors(containerColor = CardBackground)) {
         Column(Modifier.padding(16.dp)) {
-            Text(label, fontSize = 11.sp, fontWeight = FontWeight.Bold, color = textColor.copy(0.7f))
-            Text(value, fontSize = 18.sp, fontWeight = FontWeight.ExtraBold, color = textColor)
+            Text(label, fontSize = 11.sp, fontWeight = FontWeight.Bold, color = TextSecondary)
+            Text(value, fontSize = 18.sp, fontWeight = FontWeight.ExtraBold, color = accentColor)
         }
     }
 }
@@ -296,29 +328,34 @@ fun LoanCard(loan: LoanProduct) {
     val context = LocalContext.current
     Card(
         modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(2.dp)
+        colors = CardDefaults.cardColors(containerColor = CardBackground),
+        shape = RoundedCornerShape(16.dp)
     ) {
-        Column(Modifier.padding(20.dp)) {
+        Column(Modifier.padding(24.dp)) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 Column {
-                    Text(loan.name, fontWeight = FontWeight.Bold, fontSize = 18.sp)
-                    Text("By ${loan.provider}", color = Color.Gray, fontSize = 12.sp)
+                    Text(loan.name, fontWeight = FontWeight.Bold, fontSize = 18.sp, color = TextPrimary)
+                    Text("By ${loan.provider}", color = TextSecondary, fontSize = 12.sp)
                 }
-                Surface(color = Color(0xFFE8F5E9), shape = RoundedCornerShape(4.dp)) {
-                    Text(loan.amount, Modifier.padding(4.dp), color = Color(0xFF2E7D32), fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                Surface(color = NetflixRed.copy(0.1f), shape = RoundedCornerShape(4.dp)) {
+                    Text(loan.amount, Modifier.padding(6.dp), color = NetflixRed, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                 }
             }
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(20.dp))
             Button(
                 onClick = { 
-                    val intent = Intent(Intent.ACTION_VIEW, Uri.parse(loan.link))
-                    context.startActivity(intent)
+                    try {
+                        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(loan.link))
+                        context.startActivity(intent)
+                    } catch (e: Exception) {
+                        // Safe fallback
+                    }
                 },
                 modifier = Modifier.fillMaxWidth(),
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1A237E))
+                colors = ButtonDefaults.buttonColors(containerColor = NetflixRed),
+                shape = RoundedCornerShape(8.dp)
             ) {
-                Text("Apply Now")
+                Text("Apply Now", fontWeight = FontWeight.Bold)
             }
         }
     }
@@ -333,20 +370,20 @@ fun IncomeExpensePieChart(income: Float, expense: Float) {
     
     val incomeSweep = (income / total) * 360f
     
-    Canvas(modifier = Modifier.size(140.dp)) {
+    Canvas(modifier = Modifier.size(160.dp)) {
         drawArc(
-            color = Color(0xFF4CAF50),
+            color = NetflixRed,
             startAngle = -90f,
             sweepAngle = incomeSweep,
             useCenter = false,
-            style = Stroke(width = 30f)
+            style = Stroke(width = 35f)
         )
         drawArc(
-            color = Color(0xFFF44336),
+            color = Color(0xFF333333),
             startAngle = -90f + incomeSweep,
             sweepAngle = 360f - incomeSweep,
             useCenter = false,
-            style = Stroke(width = 30f)
+            style = Stroke(width = 35f)
         )
     }
 }
@@ -365,11 +402,11 @@ fun ActivityBarChart(data: List<Pair<String, Float>>) {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Box(
                     modifier = Modifier
-                        .width(16.dp)
+                        .width(18.dp)
                         .height(80.dp * (value / maxVal).coerceIn(0.1f, 1f))
-                        .background(Color(0xFF1A237E), RoundedCornerShape(topStart = 4.dp, topEnd = 4.dp))
+                        .background(NetflixRed, RoundedCornerShape(topStart = 4.dp, topEnd = 4.dp))
                 )
-                Text(label, fontSize = 7.sp, color = Color.Gray, modifier = Modifier.padding(top = 4.dp))
+                Text(label, fontSize = 7.sp, color = TextSecondary, modifier = Modifier.padding(top = 6.dp))
             }
         }
     }
@@ -384,51 +421,65 @@ fun LoadingOverlay() {
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        CircularProgressIndicator(color = Color(0xFF1A237E))
+        CircularProgressIndicator(color = NetflixRed)
         Spacer(Modifier.height(16.dp))
-        Text("Running Intelligence Engine...", fontWeight = FontWeight.Bold)
+        Text("Running intelligence...", color = TextSecondary)
     }
 }
 
 @Composable
 fun AnalyticsTitle(title: String) {
-    Text(title, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(vertical = 4.dp))
+    Text(
+        title.uppercase(), 
+        fontWeight = FontWeight.ExtraBold, 
+        color = TextPrimary, 
+        fontSize = 13.sp,
+        modifier = Modifier.padding(vertical = 4.dp)
+    )
 }
 
 @Composable
 fun LegendItem(label: String, color: Color) {
     Row(verticalAlignment = Alignment.CenterVertically) {
-        Box(Modifier.size(10.dp).background(color, RoundedCornerShape(2.dp)))
-        Text(label, Modifier.padding(start = 4.dp), fontSize = 11.sp)
+        Box(Modifier.size(12.dp).background(color, RoundedCornerShape(2.dp)))
+        Text(label, Modifier.padding(start = 8.dp), fontSize = 12.sp, color = TextSecondary)
     }
 }
 
 @Composable
 fun TransactionRow(item: HistoryItem) {
-    Row(
-        Modifier.fillMaxWidth().padding(vertical = 4.dp),
-        horizontalArrangement = Arrangement.SpaceBetween
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = CardBackground)
     ) {
-        Text(item.merchant, fontWeight = FontWeight.Medium, maxLines = 1, modifier = Modifier.weight(1f), fontSize = 14.sp)
-        Text(
-            if (item.type == "credit") "+₹${item.amount}" else "-₹${item.amount}",
-            color = if (item.type == "credit") Color(0xFF2E7D32) else Color(0xFFC62828),
-            fontWeight = FontWeight.Bold,
-            fontSize = 14.sp
-        )
+        Row(
+            Modifier.padding(16.dp).fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(item.merchant, fontWeight = FontWeight.Bold, color = TextPrimary, maxLines = 1)
+                Text(item.date, fontSize = 11.sp, color = TextSecondary)
+            }
+            Text(
+                if (item.type == "credit") "+₹${item.amount}" else "-₹${item.amount}",
+                color = if (item.type == "credit") Color(0xFF4CAF50) else NetflixRed,
+                fontWeight = FontWeight.ExtraBold
+            )
+        }
     }
 }
 
 @Composable
 fun EvaluationInsightsList(insights: CreditInsights?) {
-    if (insights == null) return
+    val ins = insights ?: CreditInsights()
     Column {
-        Text("Evaluation Highlights", fontWeight = FontWeight.Bold)
-        Card(modifier = Modifier.fillMaxWidth().padding(top = 8.dp), colors = CardDefaults.cardColors(containerColor = Color.White)) {
-            Column(Modifier.padding(16.dp)) {
-                BulletPoint("Stability", insights.incomeStrength)
-                BulletPoint("Behavior", insights.spendingBehavior)
-                BulletPoint("Vitality", insights.activityLevel)
+        Text("Insights", fontWeight = FontWeight.Bold, color = TextPrimary)
+        Card(modifier = Modifier.fillMaxWidth().padding(top = 8.dp), colors = CardDefaults.cardColors(containerColor = CardBackground)) {
+            Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                BulletPoint("Stability", ins.incomeStrength)
+                BulletPoint("Spending", ins.spendingBehavior)
+                BulletPoint("Activity", ins.activityLevel)
             }
         }
     }
@@ -436,11 +487,11 @@ fun EvaluationInsightsList(insights: CreditInsights?) {
 
 @Composable
 fun BulletPoint(label: String, text: String) {
-    Row(Modifier.padding(vertical = 4.dp)) {
-        Text("•", fontWeight = FontWeight.Bold, color = Color(0xFF1A237E))
-        Column(Modifier.padding(start = 8.dp)) {
-            Text(label, fontWeight = FontWeight.Bold, fontSize = 11.sp, color = Color.Gray)
-            Text(text, fontSize = 13.sp)
+    Row(Modifier.fillMaxWidth()) {
+        Box(Modifier.size(4.dp).background(NetflixRed).offset(y = 8.dp))
+        Column(Modifier.padding(start = 12.dp)) {
+            Text(label, fontWeight = FontWeight.Bold, fontSize = 11.sp, color = TextSecondary)
+            Text(text, fontSize = 13.sp, color = TextPrimary)
         }
     }
 }
@@ -448,24 +499,26 @@ fun BulletPoint(label: String, text: String) {
 @Composable
 fun ErrorOverlay(message: String, onRetry: () -> Unit) {
     Column(Modifier.fillMaxSize().padding(32.dp), verticalArrangement = Arrangement.Center, horizontalAlignment = Alignment.CenterHorizontally) {
-        Icon(Icons.Default.Warning, contentDescription = null, modifier = Modifier.size(64.dp), tint = Color.Gray)
-        Text(message, textAlign = TextAlign.Center, modifier = Modifier.padding(top = 16.dp))
-        Button(onClick = onRetry, Modifier.padding(top = 16.dp)) { Text("Retry Analysis") }
+        Icon(Icons.Default.Warning, contentDescription = null, modifier = Modifier.size(64.dp), tint = NetflixRed)
+        Text(message, textAlign = TextAlign.Center, color = TextPrimary, modifier = Modifier.padding(top = 16.dp))
+        Button(onClick = onRetry, Modifier.padding(top = 24.dp), colors = ButtonDefaults.buttonColors(containerColor = NetflixRed)) { 
+            Text("Retry Analysis") 
+        }
     }
 }
 
 @Composable
 fun EmptyStateOverlay(onSync: () -> Unit) {
     Column(Modifier.fillMaxSize().padding(32.dp), verticalArrangement = Arrangement.Center, horizontalAlignment = Alignment.CenterHorizontally) {
-        Text("AI Merchant Analysis Ready", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center)
+        Text("No Business activity", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold, color = TextPrimary)
         Text(
-            "Sync your business transactions to generate a real-time credit score and discovery eligible loan offers.",
+            "Push your transaction data to our engine to generate credits score and unlock micro-loan offers.",
             textAlign = TextAlign.Center,
-            color = Color.Gray,
+            color = TextSecondary,
             modifier = Modifier.padding(top = 8.dp)
         )
-        Button(onClick = onSync, Modifier.padding(top = 24.dp), colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1A237E))) {
-            Text("Initiate Business Sync")
+        Button(onClick = onSync, Modifier.padding(top = 32.dp), colors = ButtonDefaults.buttonColors(containerColor = NetflixRed)) {
+            Text("Start Analysis", fontWeight = FontWeight.Bold)
         }
     }
 }
