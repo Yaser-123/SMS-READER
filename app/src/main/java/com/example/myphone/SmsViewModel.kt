@@ -1,6 +1,7 @@
 package com.example.myphone
 
-import androidx.lifecycle.ViewModel
+import android.app.Application
+import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -10,13 +11,15 @@ import java.util.Date
 import java.util.Locale
 
 sealed class UiState {
-    object Idle : UiState()
-    object Loading : UiState()
+    data object Idle : UiState()
+    data object Loading : UiState()
     data class Success(val profile: CreditProfileResponse, val history: List<HistoryItem>) : UiState()
     data class Error(val message: String) : UiState()
 }
 
-class SmsViewModel(private val repository: SmsRepository) : ViewModel() {
+class SmsViewModel(application: Application) : AndroidViewModel(application) {
+
+    private val repository = SmsRepository(application)
 
     private val _uiState = MutableStateFlow<UiState>(UiState.Idle)
     val uiState: StateFlow<UiState> = _uiState
@@ -31,7 +34,6 @@ class SmsViewModel(private val repository: SmsRepository) : ViewModel() {
             _uiState.value = UiState.Loading
             val result = repository.getHistory()
             result.onSuccess { response ->
-                // If we have a previous score, we can show success with empty profile fields or just idle
                 if (response.latestScore != null) {
                     val mockProfile = CreditProfileResponse(
                         status = "success",
@@ -44,7 +46,7 @@ class SmsViewModel(private val repository: SmsRepository) : ViewModel() {
                     _uiState.value = UiState.Idle
                 }
             }.onFailure {
-                _uiState.value = UiState.Idle // Fail silently on init
+                _uiState.value = UiState.Idle
             }
         }
     }
