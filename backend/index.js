@@ -123,25 +123,32 @@ app.get('/api/history', async (req, res) => {
             const features = calculateFeatures(transactions);
             const scoreResult = calculateScore(features);
             const b = scoreResult.breakdown;
-            dynamicBreakdown = {
+            const dynamicBreakdown = {
                 base: parseInt(b.base) || 300,
                 income: parseInt(b.income) || 0,
                 activity: parseInt(b.activity) || 0,
                 stability: parseInt(b.stability) || 0
             };
-            dynamicLoans = getLoans(latestScore.score);
-        }
+            
+            const insights = generateInsights(features);
+            const summary = generateSummary(features, latestScore.score);
 
-        res.json({
-            transactions: transactions,
-            latestScore: latestScore ? {
-                ...latestScore,
-                breakdown: dynamicBreakdown,
-                eligibleLoans: dynamicLoans
-            } : null,
-            scoreChange: historyData.latestScores.length >= 2 ? 
-                (historyData.latestScores[0].score - historyData.latestScores[1].score) : 0
-        });
+            res.json({
+                transactions: transactions,
+                latestScore: {
+                    ...latestScore,
+                    summary: summary,
+                    breakdown: dynamicBreakdown,
+                    features: features,
+                    insights: insights,
+                    eligibleLoans: getLoans(latestScore.score)
+                },
+                scoreChange: historyData.latestScores.length >= 2 ? 
+                    (historyData.latestScores[0].score - historyData.latestScores[1].score) : 0
+            });
+        } else {
+            res.json({ transactions: [], latestScore: null, scoreChange: 0 });
+        }
     } catch (error) {
         res.status(500).json({ status: 'error', message: 'Failed to fetch history' });
     }

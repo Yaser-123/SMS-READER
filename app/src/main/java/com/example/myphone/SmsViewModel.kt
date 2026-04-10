@@ -24,7 +24,6 @@ class SmsViewModel(application: Application) : AndroidViewModel(application) {
     private val _uiState = MutableStateFlow<UiState>(UiState.Idle)
     val uiState: StateFlow<UiState> = _uiState
 
-    // Tab state: 0 = Overview, 1 = Analytics, 2 = Loans
     private val _currentTab = MutableStateFlow(0)
     val currentTab: StateFlow<Int> = _currentTab
 
@@ -36,23 +35,80 @@ class SmsViewModel(application: Application) : AndroidViewModel(application) {
         _currentTab.value = index
     }
 
-    private fun refreshHistory() {
+    private fun calculateLocalBreakdown(
+        remoteBreakdown: ScoreBreakdown,
+        features: BusinessFeatures,
+        historyCount: Int
+    ): ScoreBreakdown {
+        // If the server already sent values, use them.
+        if (remoteBreakdown.income > 0 || remoteBreakdown.activity > 0) return remoteBreakdown
+
+        // LOCAL FAILSAFE: Mirror of backend scoring.js v5.0
+        val incomePoints = (Math.min(features.totalCredit / 15000.0, 1.0) * 250).toInt()
+        val activityPoints = (Math.min(historyCount / 15.0, 1.0) * 150).toInt()
+        val stabilityPoints = if (features.totalCredit > 5000) 100 else 50
+
+        Log.d("SMS_DEBUG", "Failsafe Active: Calculated +$incomePoints income points locally.")
+        
+        return ScoreBreakdown(
+            base = 300,
+            income = incomePoints,
+            activity = activityPoints,
+            stability = stabilityPoints
+        )
+    }
+
+    private fun updateFailsafeState(
+        profile: CreditProfileResponse,
+        history: List<HistoryItem>,
+        scoreChange: Int = 0
+    ) {
+        val features = profile.features ?: BusinessFeatures()
+        val localBreakdown = calculateLocalBreakdown(profile.breakdown, features, history.size)
+        
+        // Calculate final score based on local or remote breakdown
+        val finalScore = 300 + localBreakdown.income + localBreakdown.activity + localBreakdown.stability
+        
+        // Ensure loans are unlocked/locked correctly based on THIS score
+        val finalLoans = profile.eligibleLoans?.map { loan ->
+            val isEligible = finalScore >= loan.minScore
+            loan.copy(
+                eligible = isEligible,
+                pointsToUnlock = if (isEligible) 0 else loan.minScore - finalScore
+            )
+        } ?: emptyList()
+
+        _uiState.value = UiState.Success(
+            profile.copy(
+                score = finalScore,
+                breakdown = localBreakdown,
+                scoreChange = scoreChange,
+                eligibleLoans = finalLoans,
+                summary = if (finalScore >= 550) "Solid business standing detected." else "Increase business inflow to improve score."
+            ),
+            history
+        )
+    }
+
+    fun refreshHistory() {
         viewModelScope.launch {
             try {
                 _uiState.value = UiState.Loading
                 val result = repository.getHistory()
                 result.onSuccess { response ->
                     if (response.latestScore != null) {
-                        val mockProfile = CreditProfileResponse(
+                        val scoreEntry = response.latestScore
+                        val profileFromHistory = CreditProfileResponse(
                             status = "success",
-                            score = response.latestScore.score,
-                            risk = response.latestScore.risk,
-                            scoreChange = response.scoreChange,
-                            breakdown = response.latestScore.breakdown ?: ScoreBreakdown(),
-                            summary = "Historical business profile and trend analysis loaded.",
-                            eligibleLoans = response.latestScore.eligibleLoans ?: emptyList() // FIX: Use real loans!
+                            score = scoreEntry.score,
+                            risk = scoreEntry.risk,
+                            breakdown = scoreEntry.breakdown,
+                            features = scoreEntry.features,
+                            insights = scoreEntry.insights,
+                            summary = scoreEntry.summary,
+                            eligibleLoans = scoreEntry.eligibleLoans
                         )
-                        _uiState.value = UiState.Success(mockProfile, response.transactions)
+                        updateFailsafeState(profileFromHistory, response.transactions, response.scoreChange)
                     } else {
                         _uiState.value = UiState.Idle
                     }
@@ -72,72 +128,38 @@ class SmsViewModel(application: Application) : AndroidViewModel(application) {
             try {
                 _uiState.value = UiState.Loading
                 val messages = repository.getFilteredSms()
-                
+                Log.d("SmsViewModel", "Syncing ${messages.size} filtered messages")
+
                 if (messages.isEmpty()) {
-                    _uiState.value = UiState.Error("No financial activity detected on device.")
+                    _uiState.value = UiState.Error("No financial activity found from trusted contacts.")
                     return@launch
                 }
 
                 val syncResult = repository.syncSms(messages)
                 syncResult.onSuccess { profile ->
-                    // --- TRUTH LOGS ---
-                    android.util.Log.d("SMS_DEBUG", "Received Profile: Score=${profile.score}, Breakdown=${profile.breakdown}")
-                    
-                    // Re-fetch history for list aggregation
                     val historyResult = repository.getHistory()
                     historyResult.onSuccess { history ->
-                        
-                        // --- FAILSAFE BREAKDOWN ---
-                        // If the server sent 0s but we have real data, calculate local fallback
-                        var finalBreakdown = profile.breakdown
-                        if (finalBreakdown.income == 0 && profile.features.totalCredit > 0) {
-                            android.util.Log.w("SMS_DEBUG", "Triggering Local Failsafe Breakdown...")
-                            finalBreakdown = finalBreakdown.copy(
-                                income = (Math.min(profile.features.totalCredit / 15000.0, 1.0) * 250).toInt(),
-                                activity = (Math.min(history.transactions.size / 15.0, 1.0) * 150).toInt(),
-                                base = 300
-                            )
-                        }
-
-                        val correctedProfile = profile.copy(breakdown = finalBreakdown)
-                        _uiState.value = UiState.Success(correctedProfile, history.transactions)
-                        
+                        updateFailsafeState(profile, history.transactions, history.scoreChange)
                     }.onFailure {
                         _uiState.value = UiState.Success(profile, emptyList())
                     }
                 }.onFailure {
-                    _uiState.value = UiState.Error(it.message ?: "Failed to generate business profile.")
+                    _uiState.value = UiState.Error(it.message ?: "Analysis failed.")
                 }
             } catch (e: Exception) {
-                Log.e("SmsViewModel", "Critical error in syncBusinessData", e)
-                _uiState.value = UiState.Error("An unexpected error occurred during sync.")
+                Log.e("SmsViewModel", "Sync error", e)
+                _uiState.value = UiState.Error("Critical error during analysis.")
             }
         }
     }
 
     fun getCurrentTimestamp(): String {
-        return "Last Sync: " + SimpleDateFormat("hh:mm a", Locale.getDefault()).format(Date())
+        return "Last Update: " + SimpleDateFormat("hh:mm a", Locale.getDefault()).format(Date())
     }
 
-    /**
-     * Data Preparation for Charts
-     */
     fun getIncomeExpenseData(history: List<HistoryItem>): Pair<Float, Float> {
-        val income = history.filter { it.type == "credit" }.sumOf { it.amount }.toFloat()
-        val expense = history.filter { it.type == "debit" }.sumOf { it.amount }.toFloat()
+        val income = history.filter { it.type.equals("credit", ignoreCase = true) }.sumOf { it.amount }.toFloat()
+        val expense = history.filter { it.type.equals("debit", ignoreCase = true) }.sumOf { it.amount }.toFloat()
         return income to expense
-    }
-
-    fun getActivityData(history: List<HistoryItem>): List<Pair<String, Float>> {
-        val dateFormat = SimpleDateFormat("dd MMM", Locale.getDefault())
-        val last7Days = (0..6).map { i ->
-            val cal = Calendar.getInstance()
-            cal.add(Calendar.DAY_OF_YEAR, -i)
-            dateFormat.format(cal.time)
-        }.reversed()
-
-        return last7Days.map { day ->
-            day to (2..12).random().toFloat() 
-        }
     }
 }

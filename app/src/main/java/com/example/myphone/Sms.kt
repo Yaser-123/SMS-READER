@@ -80,6 +80,9 @@ data class HistoryResponse(
 data class ScoreEntry(
     @SerializedName("score") val score: Int,
     @SerializedName("risk") val risk: String,
-    @SerializedName("breakdown") val breakdown: ScoreBreakdown? = null,
+    @SerializedName("summary") val summary: String = "",
+    @SerializedName("breakdown") val breakdown: ScoreBreakdown = ScoreBreakdown(),
+    @SerializedName("features") val features: BusinessFeatures = BusinessFeatures(),
+    @SerializedName("insights") val insights: CreditInsights = CreditInsights(),
     @SerializedName("eligibleLoans") val eligibleLoans: List<LoanProduct>? = emptyList()
 )
