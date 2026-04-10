@@ -6,7 +6,7 @@ const bodyParser = require('body-parser');
 const { parseStrictTransaction } = require('./parser');
 const { calculateFeatures } = require('./features');
 const { calculateScore, classifyRisk, generateInsights, generateSummary } = require('./scoring');
-const { saveTransactions, saveScore, getHistory, clearAllData } = require('./database');
+const { saveTransactions, saveScore, getHistory, clearAllData, pruneJunk } = require('./database');
 const { getLoans } = require('./loans');
 
 const app = express();
@@ -25,9 +25,10 @@ app.post('/api/sms', async (req, res) => {
         }
         
         
-        // --- STEP 0: NUCLEAR RESET ---
-        // Wipe all old data before sync to ensure a clean dashboard
-        await clearAllData();
+        
+        // --- STEP 0: SMART PRUNE ---
+        // Only wipe NULL/0 junk, NOT the whole history
+        await pruneJunk();
 
         // 1. Parse incoming messages (STRICT VALIDATION PIPELINE)
         const parsedBatch = rawMessages

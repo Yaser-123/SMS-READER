@@ -23,9 +23,10 @@ function calculateFeatures(transactions) {
     transactions
         .filter(tx => tx.amount && tx.amount > 0)
         .forEach(tx => {
-            if (tx.type === 'credit') {
+            const typeLower = (tx.type || "").toLowerCase().trim();
+            if (typeLower === 'credit') {
                 totalCredit += tx.amount;
-            } else if (tx.type === 'debit') {
+            } else if (typeLower === 'debit') {
                 totalDebit += tx.amount;
             }
 

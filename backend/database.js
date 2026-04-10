@@ -7,21 +7,23 @@ const SUPABASE_KEY = 'sb_publishable_xj3-9XHFo4FvnI04Jx4vXQ_b0STQD6B';
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
 /**
- * NUCLEAR RESET: Wipes all transactions and scores
+ * SMART PRUNE: Deletes only NULL or 0 amount rows (Junk)
+ */
+async function pruneJunk() {
+    console.log("🧹 Pruning misidentified junk records...");
+    const { error } = await supabase.from('transactions').delete().or('amount.is.null,amount.eq.0');
+    if (error) console.error("⚠️ Prune Warning:", error.message);
+}
+
+/**
+ * NUCLEAR RESET: Wipes everything
  */
 async function clearAllData() {
     console.log("🚀 Initializing Nuclear Clean-Slate...");
-    
     try {
-        // Use a filter that catches everything (ID not equal to empty)
-        const { error: sError } = await supabase.from('scores').delete().neq('id', '00000000-0000-0000-0000-000000000000');
-        const { error: tError } = await supabase.from('transactions').delete().neq('id', '00000000-0000-0000-0000-000000000000');
-        
-        if (sError || tError) {
-            console.warn("⚠️ Cleanup partially failed: RLS might be active. Ensure Delete is enabled.");
-        } else {
-            console.log("✅ Cleanup Complete. System Reset.");
-        }
+        await supabase.from('scores').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+        await supabase.from('transactions').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+        console.log("✅ Cleanup Complete. System Reset.");
     } catch (e) {
         console.error("❌ Cleanup Error:", e.message);
     }
@@ -129,5 +131,6 @@ module.exports = {
     saveTransactions,
     saveScore,
     getHistory,
-    clearAllData
+    clearAllData,
+    pruneJunk
 };
