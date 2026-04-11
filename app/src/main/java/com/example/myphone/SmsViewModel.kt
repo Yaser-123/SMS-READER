@@ -168,4 +168,37 @@ class SmsViewModel(application: Application) : AndroidViewModel(application) {
             NotificationHelper.notifyLowActivity(appContext, historyItemCount)
         }
     }
+
+    fun shareStatement(context: android.content.Context, profile: CreditProfileResponse) {
+        val statement = generateIncomeStatement(profile)
+        val intent = Intent(Intent.ACTION_SEND).apply {
+            type = "text/plain"
+            putExtra(Intent.EXTRA_SUBJECT, "BizCredit Financial Summary")
+            putExtra(Intent.EXTRA_TEXT, statement)
+        }
+        context.startActivity(Intent.createChooser(intent, "Share Income Statement"))
+    }
+
+    private fun generateIncomeStatement(profile: CreditProfileResponse): String {
+        val f = profile.features ?: BusinessFeatures()
+        return """
+            BizCredit Intelligence - Financial Summary
+            ------------------------------------------
+            Date: ${SimpleDateFormat("dd MMM yyyy, hh:mm a", Locale.getDefault()).format(Date())}
+            
+            UNIFIED DASHBOARD DATA:
+            Total Income:  ₹${f.totalCredit}
+            Total Expense: ₹${f.totalDebit}
+            Net Balance:   ₹${f.netBalance}
+            Transactions:  ${f.transactionCount}
+            
+            CREDIT STANDING:
+            Business Score: ${profile.score}
+            Risk Profile:   ${profile.risk}
+            
+            ------------------------------------------
+            Generated from UPI transaction analysis
+            BizCredit AI Engine v2.0
+        """.trimIndent()
+    }
 }

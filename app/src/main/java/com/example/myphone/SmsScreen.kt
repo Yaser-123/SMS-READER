@@ -80,7 +80,7 @@ fun SmsScreen(viewModel: SmsViewModel) {
                     Crossfade(targetState = selectedTab, label = "tab") { tab ->
                         when (tab) {
                             0 -> OverviewTab(state.profile, state.history, viewModel.getCurrentTimestamp())
-                            1 -> AnalyticsTab(state.history, viewModel)
+                            1 -> AnalyticsTab(state.history, viewModel, state.profile)
                             2 -> LoansTab(state.profile.eligibleLoans)
                         }
                     }
@@ -107,7 +107,8 @@ fun OverviewTab(profile: CreditProfileResponse, history: List<HistoryItem>, last
 }
 
 @Composable
-fun AnalyticsTab(history: List<HistoryItem>, viewModel: SmsViewModel) {
+fun AnalyticsTab(history: List<HistoryItem>, viewModel: SmsViewModel, profile: CreditProfileResponse) {
+    val context = LocalContext.current
     LazyColumn(modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(20.dp)) {
         item {
             AnalyticsTitle("Cash Flow Profile")
@@ -123,9 +124,93 @@ fun AnalyticsTab(history: List<HistoryItem>, viewModel: SmsViewModel) {
                 }
             }
         }
+
+        item {
+            SmartFinancialInsightsSection(profile)
+        }
+
+        item {
+            Button(
+                onClick = { viewModel.shareStatement(context, profile) },
+                modifier = Modifier.fillMaxWidth().height(56.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = CardBackground),
+                shape = RoundedCornerShape(12.dp),
+                border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(0.1f))
+            ) {
+                Icon(Icons.Default.Description, contentDescription = null, tint = GrowthGreen)
+                Spacer(Modifier.width(12.dp))
+                Text("Share Income Statement", color = TextPrimary, fontWeight = FontWeight.Bold)
+            }
+        }
+
         item { AnalyticsTitle("Historical transacting partners") }
         items(history.take(10)) { TransactionRow(it) }
         item { Spacer(Modifier.height(80.dp)) }
+    }
+}
+
+@Composable
+fun SmartFinancialInsightsSection(profile: CreditProfileResponse) {
+    val f = profile.features ?: BusinessFeatures()
+    
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        AnalyticsTitle("Smart Financial Insights")
+        
+        // 1. Loan Timing
+        val isGoodTime = profile.score > 650 && f.netBalance > 0
+        InsightCard(
+            title = "Loan Timing",
+            description = if (isGoodTime) "This is a good time to take a loan based on your financial activity." 
+                          else "Improve your financial stability before applying for a loan.",
+            icon = Icons.Default.TrendingUp,
+            color = if (isGoodTime) GrowthGreen else NetflixRed
+        )
+
+        // 2. Affordability Check
+        val affordability = when {
+            f.netBalance > f.totalDebit * 0.5 -> "You can comfortably repay a small loan."
+            f.netBalance > f.totalDebit * 0.2 -> "You may afford a small loan with caution."
+            else -> "High risk: Improve balance before borrowing."
+        }
+        val affordabilityColor = when {
+            f.netBalance > f.totalDebit * 0.5 -> GrowthGreen
+            f.netBalance > f.totalDebit * 0.2 -> Color(0xFFFFC107)
+            else -> NetflixRed
+        }
+        InsightCard(
+            title = "Repayment Affordability",
+            description = affordability,
+            icon = Icons.Default.AccountBalance,
+            color = affordabilityColor
+        )
+
+        // 3. MSME Nudge
+        InsightCard(
+            title = "MSME Suggestion",
+            description = "If you are a small business owner, registering under MSME/Udyam can improve your access to loans.",
+            icon = Icons.Default.Business,
+            color = Color(0xFF2196F3)
+        )
+    }
+}
+
+@Composable
+fun InsightCard(title: String, description: String, icon: androidx.compose.ui.graphics.vector.ImageVector, color: Color) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = CardBackground),
+        border = androidx.compose.foundation.BorderStroke(1.dp, color.copy(0.2f))
+    ) {
+        Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+            Surface(color = color.copy(0.1f), shape = RoundedCornerShape(8.dp)) {
+                Icon(icon, contentDescription = null, size = 24.dp, tint = color)
+            }
+            Spacer(Modifier.width(16.dp))
+            Column {
+                Text(title, fontWeight = FontWeight.Bold, color = TextPrimary, fontSize = 14.sp)
+                Text(description, color = TextSecondary, fontSize = 12.sp, lineHeight = 18.sp)
+            }
+        }
     }
 }
 
