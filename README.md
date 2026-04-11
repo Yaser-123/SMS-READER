@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="./assets/logointro.gif" width="70%" />
+<img src="https://raw.githubusercontent.com/Yaser-123/SMS-READER/main/assets/logointro_fast.gif" width="70%" />
 
 # 💳 BizCredit
 ### Smart Financial Opportunity Engine for Small Merchants
