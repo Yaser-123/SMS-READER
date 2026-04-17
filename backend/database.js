@@ -1,7 +1,7 @@
 const { createClient } = require('@supabase/supabase-js');
 
-const SUPABASE_URL = 'https://iqimfntocrsjgsfvrcbr.supabase.co';
-const SUPABASE_KEY = 'sb_publishable_xj3-9XHFo4FvnI04Jx4vXQ_b0STQD6B';
+const SUPABASE_URL = process.env.SUPABASE_URL || 'https://iqimfntocrsjgsfvrcbr.supabase.co';
+const SUPABASE_KEY = process.env.SUPABASE_KEY || 'sb_publishable_xj3-9XHFo4FvnI04Jx4vXQ_b0STQD6B';
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
 async function pruneJunk() {
